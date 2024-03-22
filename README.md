@@ -9,7 +9,7 @@ The Linphone clients connect through Flexisip to Voip.ms.  MMSgate uses PJSIP to
 
 ![mmsgate-2](https://github.com/RVgo4it/mmsgate/assets/112497289/8e35b19f-5511-4d55-9119-544b2ee2abea)
 
-# Requirements and Prerequisites
+## Requirements and Prerequisites
 
 	* Ubuntu Server 22.04 LTS
 		* Either a Raspberry Pi aarch64/arm64 or Intel/AMD x86_64/amd64
@@ -22,7 +22,7 @@ The Linphone clients connect through Flexisip to Voip.ms.  MMSgate uses PJSIP to
 	* Basic knowledge of Linux (Installing an OS, copying files, logon, logoff, others)
  	* Basic networking knowledge (firewall, NAT, IP address, ports, TCP, UDP)
 
-# Prepare the Ubuntu Server
+## Prepare the Ubuntu Server
 
 The Ubuntu server, often referred to as the host in this document, will act as the platform for MMSGate.  It is expected to be powered on and operational nearly all the time.  Logon as usual and arrive at a command prompt.  Update the host and set it's name to match your DNS name, replacing "flexisip.yourDomian.com" as needed in these commands:
 ```
@@ -87,7 +87,7 @@ The host's backup system should be configured to backup the volume data as part 
 ```
 docker volume ls
 ```
-To see the startup Logs, use this command:
+To see the startup logs, use this command:
 ```
 docker logs mmsgate
 ```
@@ -129,7 +129,13 @@ To copy files into or out of the container, use commands like these:
 docker cp mmsgate:/etc/flexisip/flexisip.conf /tmp/flexisip.conf.old
 docker cp ~/Downloads/mmsgate-abcde-f0123456789a.json mmsgate:/etc/flexisip
 ```
-Test voice calls and SMS messaging from your Linphone clients.  MMS messaging is not operational at this point.  Once working as expected, move on to setup MMSGate.
+Test voice calls and SMS messaging from your Linphone clients.  MMS messaging is not operational at this point.  SMS messaging should work, but only the sub account designated in the DID configuration at VoIP.ms will receive a copy of an incoming SMS message.  
+
+Once Flexisip is builds are done, you can delete the 
+```
+rm -r ~/mmsgate-system
+```
+Once Flexisip working as expected, move on to setup MMSGate.
 
 * Tips:
 	* For SIPS (TLS), the recommended transport, it's best to import the client config via "Fetch Remote Configuration" with the SIPS URI already defined in the XML.  Otherwise, client may still try to use SIP and fail.  
@@ -140,3 +146,181 @@ Test voice calls and SMS messaging from your Linphone clients.  MMS messaging is
 ```
 docker exec -it mmsgate sudo /opt/belledonne-communications/bin/flexisip_cli.py REGISTRAR_GET sip:123456_bob@deluth2.voip.ms
 ```
+## MMSGate configuration
+These steps will configure MMSGate so it can communicate with VoIP.ms and Flexisip.  
+
+If MMSGate is behind a firewall/NAT router, ensure the TCP web hook/media port, default of 38443, is allowed and/or forwarded.  
+
+From host server, edit the Flexisip config file:
+```
+docker exec -it mmsgate sudo nano /etc/flexisip/flexisip.conf
+```
+We need Flexisip to be able to talk to MMSGate via local loopback IP.  In the [global] section, find option transports and add the following to the end, seperated by a space from the existing transports:
+```
+sips:localhost;maddr=127.0.0.1;tls-verify-outgoing=0 sip:localhost;maddr=127.0.0.1
+```
+Also, need to define a forward rule for sending MMS messages over to MMSGate.  In the [module::Forward] section, add option as follows:
+```
+routes-config-path=/etc/flexisip/forward.conf
+```
+Once back at the command prompt, edit the forward.conf file using this command:
+```
+docker exec -it sudo nano /etc/flexisip/forward.conf
+```
+We need to send all SIP messages from the Linphone clients that are not text, that being MMS or other types that Voip.ms can't process, over to the MMSGate.  Add a line as per the following:
+```
+<sip:127.0.0.2>     request.method == 'MESSAGE' && user-agent contains 'Linphone' && content-type != 'text/plain'
+```
+Once back at the command prompt, edit the MMSGate configuration file using this command:
+```
+docker exec -it sudo nano /etc/flexisip/mmsgate.conf
+```
+Edit the MMSGate config, adding API ID and passwrod, webdns name and other settings as needed.  
+
+Once back at the command prompt, restart the mmsgate container.
+
+## Setup Voip.ms
+
+The following will configure your VoIP.ms account to work with MMSGate.
+
+Logon to Voip.ms portal, https://voip.ms/
+
+* Select "DID Numbers"->"Manage DID(s)".
+* Edit each DID that will be used with MMSGate.  
+	* Enable "Message Service (SMS/MMS)"
+	* Disable "Link the SMS received to this DID to a SIP Account"
+	* Enable "SMS/MMS Webhook URL (3CX)" and site it to something like these, depending on your domain, port and protocol:
+		* http://flexisip.yourDomian.com:38443/mmsgate
+		* https://flexisip.yourDomian.com:38443/mmsgate
+	* Enable "URL Callback and Webhook URL Retrying"
+	* Edit other setting as needed.
+	* Apply changes
+
+* Select "Sub Accounts"->"Manage Sub Accounts".
+* Edit each sub account that will be used with MMSGate.  
+	* Edit "CallerID Number", selecting the DID that will be associated with sending and receiving SMS/MMS messages for this account.
+	* Edit "Encrypted SIP Traffic", matching the clients transport method.
+	* Edit other setting as needed.
+	* Apply changes
+
+Once done, test the MMS and SMS messaging.  
+
+## Android Push Notification
+
+To use push notification on Android and Flexisip, we need Firebase and Cloud Messaging.
+
+https://firebase.google.com/
+
+Sign in and go to Console
+
+Create a project and call it mmsgate.
+
+Once at project overview, add an Android app by clicking the Android icon.
+
+If you opened project settings, you can also add an Android app from the General tab.
+
+For the app's Package name, use your domain in reverse and end with linphone.  For example:
+```
+	com.yourdomain.linphone
+```
+After an app is registered, download the google-services.json file and keep it in a safe place.  It needs to be added to the Android app source project.
+
+After returning to the project settings, select the Cloud Messaging tab.
+
+Under Firebase Cloud Messaging API (V1), select Manage Service Accounts and the Cloud console will appear.
+
+There should be a service account listed, to it's right, there is an action menu.  Select Manage Keys.
+
+Click ADD KEY and select Create new key.  Key type is JSON and click Create.  Download the file named simular to "mmsgate-aaaaa-bbbbbbbbbbbb.json" and keep it in a safe place.  It needs to be added to the Flexisip server.
+
+From an Ubuntu 22.04 LTS Desktop system, NOT the MMSGate server, open a command prompt.
+
+If Docker not already installed, do this:
+```
+sudo apt install docker.io
+```
+Upgrade the builder
+```
+sudo apt install docker-buildx
+```
+Grant current user Docker rights:
+```
+sudo usermod -a -G docker $USER
+```
+logoff and back in again or use this command:
+```
+su -  $USER
+```
+Need a location for the software.
+```
+mkdir ~/linphone-android-app
+cd ~/linphone-android-app
+```
+Download source for the Linphone SDK.  
+```
+git clone https://gitlab.linphone.org/BC/public/linphone-sdk.git --recursive -b release/5.3
+```
+Download the source for the Android application.
+```
+git clone https://gitlab.linphone.org/BC/public/linphone-android --recursive -b release/5.2
+```
+The "-b" parameter in the last two commands can be altered to build different versions.  
+
+Copy the google-services.json files downloaded from firebase.google.com to ~/linphone-android-app/linphone-android/app/google-services.json, replacing the one there.
+
+Use this command to see available docker files for Android builds:
+```
+ls -l linphone-sdk/docker-files/*andr*
+```
+Examine docker file listed and pick newest that is not for testing, for example bc-dev-android-r25b.  Modify next command to reflect the selected docker file and run:
+```
+docker build -f linphone-sdk/docker-files/bc-dev-android-r25b -t linphone-android .
+```
+Next, create a container and open a command prompt inside the container.
+```
+docker run -it -v $PWD/linphone-sdk:/home/bc/linphone-sdk -v $PWD/linphone-android:/home/bc/linphone-android linphone-android /bin/bash -i
+```
+Once inside the container, build the SDK:
+```
+cd ~/linphone-sdk
+cmake --preset=android-sdk -B build-android -DLINPHONESDK_ANDROID_ARCHS=arm64
+cmake --build build-android --parallel 5
+```
+Before building the Android application, we must configure it:
+```
+cd ~/linphone-android
+cat app/google-services.json
+```
+Note the package name, your DNS name in reverse.
+
+Use the following command to edit the "PackageName" statement, about line 12, to match your package name.
+```
+nano app/build.gradle
+```
+It will look comething like this:
+```
+	def packageName = "com.yourdomain.linphone"
+```
+
+Use the following command to edit keystore.properties, enter a desired password in two places and the alias as linphone-alias.
+```
+nano keystore.properties
+```
+Use the following command to generate a new keystore.  Enter the same password you selected in the last step.
+```
+keytool -genkey -v -keystore app/bc-android.keystore -alias linphone-alias -keyalg RSA -keysize 2048 -validity 3650 -dname "OU=None"
+```
+Compile the Linphone app
+```
+./gradlew AssembleRelease
+```
+Once done, exit the container.
+```
+exit
+```
+Assuming no errors, there is now a .apk file in ~/linphone-android-app/linphone-android/app/build/outputs/apk/release.  Transfer the .apk file to your android phone and install it.
+
+Configure Flexisip as per:
+https://wiki.linphone.org/xwiki/wiki/public/view/Flexisip/Configuration/Push%20notifications/
+
+Once confirmed working, you can remove the ~/linphone-android-app folder.  
