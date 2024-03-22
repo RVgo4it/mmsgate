@@ -131,7 +131,7 @@ docker cp ~/Downloads/mmsgate-abcde-f0123456789a.json mmsgate:/etc/flexisip
 ```
 Test voice calls and SMS messaging from your Linphone clients.  MMS messaging is not operational at this point.  SMS messaging should work, but only the sub account designated in the DID configuration at VoIP.ms will receive a copy of an incoming SMS message.  
 
-Once Flexisip is builds are done, you can delete the 
+Once the builds are done, you can delete the downloaded files.
 ```
 rm -r ~/mmsgate-system
 ```
