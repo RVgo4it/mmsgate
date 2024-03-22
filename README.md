@@ -104,6 +104,10 @@ The transport line may loom something like this:
 ```
 transports=sips:flexisip.yourdomain.com;maddr=123.45.67.89
 ```
+To view the Flexisip log file as it is appended to, use this command:
+```
+docker exec -it mmsgate tail -f /var/opt/belledonne-communications/log/flexisip/flexisip-proxy.log
+```
 To start or stop the container, use these commands:
 ```
 docker stop mmsgate
@@ -119,7 +123,7 @@ Test voice calls and SMS messaging from your Linphone clinets.  MMS messaging is
 * Tips:
 
 	* For SIPS (TLS), recommended transport, it's best to import the client config via "Fetch Remote Configuration" with the SIPS URI already defined in the XML.  Otherwise, client may still try to use SIP and fail.
-	* For Android clients to use push notification, you'll need a https://firebase.google.com project definition "google-services.json" and authentication keys similar to "MyMMSgateProj-fedcba-0123456789ac.json".  
+	* For Android clients to use push notification, you'll need a https://firebase.google.com project definition "google-services.json" and authentication keys similar to "MyMMSgateProj-fedcba-0123456789ac.json".  Details in the Android Push Notification section of this README.
 	* The authentication keys are used in Flexisip server configuration and the project definition is used in compiling https://gitlab.linphone.org/BC/public/linphone-android.  
 	* If Flexisip is behind a NAT firewall, use this guide: https://wiki.linphone.org/xwiki/wiki/public/view/Flexisip/HOWTOs/Deploying%20flexisip%20behind%20a%20NAT/
 	* To confirm the Linphone client is passing it's push notification settings in its contact URI, use a command like the following and look for "pn" parameters:
