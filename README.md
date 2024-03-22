@@ -20,7 +20,7 @@ The Linphone clients connect through Flexisip to Voip.ms.  MMSgate uses PJSIP to
 	* Your Voip.ms portal account ID and password.
 	* An API password and enabled API via https://voip.ms/m/api.php.
 	* Basic knowledge of Linux (Installing an OS, copying files, logon, logoff, others)
- 	* Basic networking knowledge (firewall, NAT, IP address, TCP, UDP)
+ 	* Basic networking knowledge (firewall, NAT, IP address, ports, TCP, UDP)
 
 # Prepare the Ubuntu Server
 
@@ -77,9 +77,13 @@ docker image ls
 ```
 Images are built in layers.  The MMSgate image may show a size of about 400Mb, but that is actually a total including all the lower layers.  
 
-Keep in mind that Docker containers transitory.  Thus, create a container with the configuration and data stored in a volume using this command:
+Keep in mind that Docker containers are transitory.  Thus, we need to create a container using the images with the configuration and data stored in a persistant volume using this command:
 ```
 docker run --name mmsgate -d --network host -v datavol:/home/mmsgate/data -v confvol:/etc/flexisip -v mmsmediavol:/home/mmsgate/mmsmedia mmsgate 
+```
+The host's backup system should be configured to backup the volumne data as part of it's normal activity. Make sure it includes this path: /var/lib/docker/volumes.  To see a list of volumes, use this command:
+```
+docker volume ls
 ```
 To confirm the mmsgate container is running, use this command:
 ```
@@ -89,19 +93,36 @@ Status should show "up".  If so, tell Docker to restart the container if it stop
 ```
 docker update --restart unless-stopped mmsgate
 ```
-Configure Flexisip as a push gateway.  Bind the interface to the local IP 
+Configure Flexisip as a push gateway.  Bind the interface to the local IP and use the DNS name.  
 ref: https://wiki.linphone.org/xwiki/wiki/public/view/Flexisip/HOWTOs/Push%20Gateway/
 
 To edit the Flexisip configuration, use this command:
 ```
 docker exec -it mmsgate sudo nano /etc/flexisip/flexisip.conf
 ```
+The transport line may loom something like this:
+```
+transports=sips:flexisip.yourdomain.com;maddr=123.45.67.89
+```
+To start or stop the container, use these commands:
+```
+docker stop mmsgate
+docker start mmsgate
+```
+Docker can consume significant disk space.  Use these commands to monitor and clean up space.
+```
+df -h
+docker system prune
+```
 Test voice calls and SMS messaging from your Linphone clinets.  MMS messaging is not operational at this point.  Once working as expected, move on to setup MMSGate.
 
-tips:
-- For SIPS (TLS), recommended transport, it's best to import the client config via "Fetch Remote Configuration" with the SIPS URI already defined in the XML.  Otherwise, client may still try to use SIP and fail.
-- For Android clients to use push notification, you'll need a https://firebase.google.com project definition "google-services.json" and authentication keys similar to "MyMMSgateProj-fedcba-0123456789ac.json".  
-	The authentication keys are used in Flexisip server configuration and the project definition is used in compiling https://gitlab.linphone.org/BC/public/linphone-android.  
-- To confirm the Linphone client is passing it's push notification settings in its contact URI, use a command like the following and look for "pn" parameters:
-	sudo /opt/belledonne-communications/bin/flexisip_cli.py REGISTRAR_GET sip:123456_bob@deluth2.voip.ms
-- If Flexisip is behind a NAT firewall, use this guide: https://wiki.linphone.org/xwiki/wiki/public/view/Flexisip/HOWTOs/Deploying%20flexisip%20behind%20a%20NAT/
+* Tips:
+
+	* For SIPS (TLS), recommended transport, it's best to import the client config via "Fetch Remote Configuration" with the SIPS URI already defined in the XML.  Otherwise, client may still try to use SIP and fail.
+	* For Android clients to use push notification, you'll need a https://firebase.google.com project definition "google-services.json" and authentication keys similar to "MyMMSgateProj-fedcba-0123456789ac.json".  
+	* The authentication keys are used in Flexisip server configuration and the project definition is used in compiling https://gitlab.linphone.org/BC/public/linphone-android.  
+	* If Flexisip is behind a NAT firewall, use this guide: https://wiki.linphone.org/xwiki/wiki/public/view/Flexisip/HOWTOs/Deploying%20flexisip%20behind%20a%20NAT/
+	* To confirm the Linphone client is passing it's push notification settings in its contact URI, use a command like the following and look for "pn" parameters:
+```
+docker exec -it mmsgate sudo /opt/belledonne-communications/bin/flexisip_cli.py REGISTRAR_GET sip:123456_bob@deluth2.voip.ms
+```
