@@ -1,11 +1,11 @@
 # MMSGate
-MMSGate is a MMS message gateway between Voip.ms and Linphone clients.
+MMSGate is a MMS message gateway between VoIP.ms and Linphone clients.
 
 Linphone is an open-source soft-phone.  It makes VoiP SIP calls and can send/receive SMS/MMS messages over the SIP protocol.  For voice calls, it can also use push notifications to ensure no calls are missed.  
 
-Voip.ms provides voice and SMS over SIP protocol.  While MMS messages are possible, the service is provided over a customized API and web hook.  MMSGate provides the link between Voip.ms's MMS service and Linphone clients.
+VoIP.ms provides voice and SMS over SIP protocol.  While MMS messages are possible, the service is provided over a customized API and web hook.  MMSGate provides the link between VoIP.ms's MMS service and Linphone clients.
 
-The Linphone clients connect through Flexisip to Voip.ms.  MMSgate uses PJSIP to communicate via SIP and web interfaces to communicate with Voip.ms.  MMSGate intercepts MMS messages, inbound and outbound, and forwards them via the appropriate communications method.  
+The Linphone clients connect through Flexisip to VoIP.ms.  MMSgate uses PJSIP to communicate via SIP and web interfaces to communicate with VoIP.ms.  MMSGate intercepts MMS messages, inbound and outbound, and forwards them via the appropriate communications method.  
 
 ![mmsgate-2](https://github.com/RVgo4it/mmsgate/assets/112497289/8e35b19f-5511-4d55-9119-544b2ee2abea)
 
@@ -15,9 +15,9 @@ The Linphone clients connect through Flexisip to Voip.ms.  MMSgate uses PJSIP to
 		* Either a Raspberry Pi aarch64/arm64 or Intel/AMD x86_64/amd64
 		* Recommend: Raspberry Pi 4 Model B with 2G or more memory.  
 	* DNS name that will point to the Flexisip/MMSGate server, i.e. flexisip.yourDomian.com
-	* One or more Voip.ms DIDs and one or more sub accounts.
+	* One or more VoIP.ms DIDs and one or more sub accounts.
 	* For SIPS (TLS) transport and web HTTPS, the certificate chain and private key for the DNS name.
-	* Your Voip.ms portal account ID and password.
+	* Your VoIP.ms portal account ID and password.
 	* An API password and enabled API via https://voip.ms/m/api.php.
 	* Basic knowledge of Linux (Installing an OS, copying files, logon, logoff, others)
  	* Basic networking knowledge (firewall, NAT, IP address, ports, TCP, UDP)
@@ -155,7 +155,7 @@ From host server, edit the Flexisip config file:
 ```
 docker exec -it mmsgate sudo nano /etc/flexisip/flexisip.conf
 ```
-We need Flexisip to be able to talk to MMSGate via local loopback IP.  In the [global] section, find option transports and add the following to the end, seperated by a space from the existing transports:
+We need Flexisip to be able to talk to MMSGate via local loopback IP.  In the [global] section, find option transports and add the following to the end, separated by a space from the existing transports:
 ```
 sips:localhost;maddr=127.0.0.1;tls-verify-outgoing=0 sip:localhost;maddr=127.0.0.1
 ```
@@ -167,7 +167,7 @@ Once back at the command prompt, edit the forward.conf file using this command:
 ```
 docker exec -it sudo nano /etc/flexisip/forward.conf
 ```
-We need to send all SIP messages from the Linphone clients that are not text, that being MMS or other types that Voip.ms can't process, over to the MMSGate.  Add a line as per the following:
+We need to send all SIP messages from the Linphone clients that are not text, that being MMS or other types that VoIP.ms can't process, over to the MMSGate.  Add a line as per the following:
 ```
 <sip:127.0.0.2>     request.method == 'MESSAGE' && user-agent contains 'Linphone' && content-type != 'text/plain'
 ```
@@ -175,15 +175,15 @@ Once back at the command prompt, edit the MMSGate configuration file using this 
 ```
 docker exec -it sudo nano /etc/flexisip/mmsgate.conf
 ```
-Edit the MMSGate config, adding API ID and passwrod, webdns name and other settings as needed.  
+Edit the MMSGate config, adding API ID and password, webdns name and other settings as needed.  
 
 Once back at the command prompt, restart the mmsgate container.
 
-## Setup Voip.ms
+## Setup VoIP.ms
 
 The following will configure your VoIP.ms account to work with MMSGate.
 
-Logon to Voip.ms portal, https://voip.ms/
+Logon to VoIP.ms portal, https://voip.ms/
 
 * Select "DID Numbers"->"Manage DID(s)".
 * Edit each DID that will be used with MMSGate.  
