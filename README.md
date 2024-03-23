@@ -10,6 +10,7 @@ The Linphone clients connect through Flexisip to VoIP.ms.  MMSgate uses PJSIP to
 ![mmsgate-2](https://github.com/RVgo4it/mmsgate/assets/112497289/8e35b19f-5511-4d55-9119-544b2ee2abea)
 
 ## Requirements and Prerequisites
+Please have the following equipment, resources, information and knowledge available before attempting this procedure.
 
 	* Ubuntu Server 22.04 LTS
 		* Either a Raspberry Pi aarch64/arm64 or Intel/AMD x86_64/amd64
