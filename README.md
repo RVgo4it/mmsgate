@@ -12,16 +12,16 @@ The Linphone clients connect through Flexisip to VoIP.ms.  MMSgate uses PJSIP to
 ## Requirements and Prerequisites
 Please have the following equipment, resources, information and knowledge available before attempting this procedure.
 
-	* Ubuntu Server 22.04 LTS
-		* Either a Raspberry Pi aarch64/arm64 or Intel/AMD x86_64/amd64
-		* Recommend: Raspberry Pi 4 Model B with 2G or more memory.  
-	* DNS name that will point to the Flexisip/MMSGate server, i.e. flexisip.yourDomian.com
-	* One or more VoIP.ms DIDs and one or more sub accounts.
-	* For SIPS (TLS) transport and web HTTPS, the certificate chain and private key for the DNS name.
-	* Your VoIP.ms portal account ID and password.
-	* An API password and enabled API via https://voip.ms/m/api.php.
-	* Basic knowledge of Linux (Installing an OS, copying files, logon, logoff, others)
- 	* Basic networking knowledge (firewall, NAT, IP address, ports, TCP, UDP)
+* Ubuntu Server 22.04 LTS
+	* Either a Raspberry Pi aarch64/arm64 or Intel/AMD x86_64/amd64
+	* Recommend: Raspberry Pi 4 Model B with 2G or more memory.  
+* DNS name that will point to the Flexisip/MMSGate server, i.e. flexisip.yourDomian.com
+* One or more VoIP.ms DIDs and one or more sub accounts.
+* For SIPS (TLS) transport and web HTTPS, the certificate chain and private key for the DNS name.
+* Your VoIP.ms portal account ID and password.
+* An API password and enabled API via https://voip.ms/m/api.php.
+* Basic knowledge of Linux (Installing an OS, copying files, logon, logoff, others)
+* Basic networking knowledge (firewall, NAT, IP address, ports, TCP, UDP)
 
 ## Prepare the Ubuntu Server
 
