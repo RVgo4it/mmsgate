@@ -207,15 +207,15 @@ Once done, test the MMS and SMS messaging.
 
 ## Android Push Notification
 
-To use push notification on Android and Flexisip, we need Firebase and Cloud Messaging.
+To use push notifications on Android via Flexisip, we need Firebase and Cloud Messaging.  Open the following URL:
 
 https://firebase.google.com/
 
-Sign in and go to Console
+Sign in and go to the Console.
 
 Create a project and call it mmsgate.
 
-Once at project overview, add an Android app by clicking the Android icon.
+Once at the project overview, add an Android app by clicking the Android icon.
 
 If you opened project settings, you can also add an Android app from the General tab.
 
@@ -223,7 +223,7 @@ For the app's Package name, use your domain in reverse and end with linphone.  F
 ```
 	com.yourdomain.linphone
 ```
-After an app is registered, download the google-services.json file and keep it in a safe place.  It needs to be added to the Android app source project.
+After the app is registered, download the google-services.json file and keep it in a safe place.  It needs to be added to the Android app source project.
 
 After returning to the project settings, select the Cloud Messaging tab.
 
@@ -231,15 +231,15 @@ Under Firebase Cloud Messaging API (V1), select Manage Service Accounts and the 
 
 There should be a service account listed, to it's right, there is an action menu.  Select Manage Keys.
 
-Click ADD KEY and select Create new key.  Key type is JSON and click Create.  Download the file named simular to "mmsgate-aaaaa-bbbbbbbbbbbb.json" and keep it in a safe place.  It needs to be added to the Flexisip server.
+Click ADD KEY and select Create new key.  Key type is JSON and click Create.  Download the file named simular to "mmsgate-abcde-f0123456789a.json" and keep it in a safe place.  It needs to be added to the Flexisip server.
 
-From an Ubuntu 22.04 LTS Desktop system, NOT the MMSGate server, open a command prompt.
+From an Ubuntu 22.04 LTS Desktop system, but NOT the MMSGate server, open a command prompt.
 
 If Docker not already installed, do this:
 ```
 sudo apt install docker.io
 ```
-Upgrade the builder
+Upgrade the builder:
 ```
 sudo apt install docker-buildx
 ```
@@ -251,7 +251,7 @@ logoff and back in again or use this command:
 ```
 su -  $USER
 ```
-Need a location for the software.
+Need a location for the software.  Create it and switch to it.  
 ```
 mkdir ~/linphone-android-app
 cd ~/linphone-android-app
@@ -272,7 +272,7 @@ Use this command to see available docker files for Android builds:
 ```
 ls -l linphone-sdk/docker-files/*andr*
 ```
-Examine docker file listed and pick newest that is not for testing, for example bc-dev-android-r25b.  Modify next command to reflect the selected docker file and run:
+Examine docker files listed and pick newest that is not for testing, for example bc-dev-android-r25b.  Modify the next command to reflect the selected docker file and run:
 ```
 docker build -f linphone-sdk/docker-files/bc-dev-android-r25b -t linphone-android .
 ```
@@ -302,11 +302,11 @@ It will look comething like this:
 	def packageName = "com.yourdomain.linphone"
 ```
 
-Use the following command to edit keystore.properties, enter a desired password in two places and the alias as linphone-alias.
+Once back at command prompt, use the following command to edit keystore.properties, enter a desired password in two places and the alias as linphone-alias.
 ```
 nano keystore.properties
 ```
-Use the following command to generate a new keystore.  Enter the same password you selected in the last step.
+Back at command prompt, use the following command to generate a new keystore.  Enter the same password you selected in the last step.
 ```
 keytool -genkey -v -keystore app/bc-android.keystore -alias linphone-alias -keyalg RSA -keysize 2048 -validity 3650 -dname "OU=None"
 ```
@@ -318,9 +318,14 @@ Once done, exit the container.
 ```
 exit
 ```
-Assuming no errors, there is now a .apk file in ~/linphone-android-app/linphone-android/app/build/outputs/apk/release.  Transfer the .apk file to your android phone and install it.
+Assuming no errors, there is now a .apk file in ~/linphone-android-app/linphone-android/app/build/outputs/apk/release.  Transfer the .apk file to your Android phone and install it.
 
 Configure Flexisip as per:
 https://wiki.linphone.org/xwiki/wiki/public/view/Flexisip/Configuration/Push%20notifications/
 
-Once confirmed working, you can remove the ~/linphone-android-app folder.  
+Once confirmed working, you can remove the ~/linphone-android-app folder.  You can clean up the Docker image, container and cache using these commands:
+```
+docker container prune
+docker image rm linphone-android
+docker system prune
+```
