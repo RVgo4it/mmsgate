@@ -10,7 +10,7 @@ The Linphone clients connect through Flexisip to VoIP.ms.  MMSgate uses PJSIP to
 ![mmsgate-2](https://github.com/RVgo4it/mmsgate/assets/112497289/8e35b19f-5511-4d55-9119-544b2ee2abea)
 
 ## Requirements and Prerequisites
-Please have the following equipment, resources, information and knowledge available before attempting this procedure.
+It is strongly recommended to have the following equipment, resources, information and knowledge available before attempting this procedure.
 
 * Ubuntu Server 22.04 LTS
 	* Either a Raspberry Pi aarch64/arm64 or Intel/AMD x86_64/amd64
@@ -25,7 +25,7 @@ Please have the following equipment, resources, information and knowledge availa
 
 ## Prepare the Ubuntu Server
 
-The Ubuntu server, often referred to as the host in this document, will act as the platform for MMSGate.  It is expected to be powered on and operational nearly all the time.  Logon as usual and arrive at a command prompt.  Update the host and set it's name to match your DNS name, replacing "flexisip.yourDomian.com" as needed in these commands:
+The Ubuntu server, often referred to as the host in this document, will act as the platform for MMSGate.  It is expected to be powered on and operational nearly all the time.  Logon as usual and arrive at a command prompt.  Update the host and set its name to match your DNS name, replacing "flexisip.yourDomian.com" as needed in these commands:
 ```
 sudo apt update
 sudo apt upgrade
@@ -84,7 +84,7 @@ We can now create a container to run the software in the images.  Keep in mind t
 ```
 docker run --name mmsgate -d --network host -v datavol:/home/mmsgate/data -v confvol:/etc/flexisip -v mmsmediavol:/home/mmsgate/mmsmedia mmsgate 
 ```
-The host's backup system should be configured to backup the volume data as part of it's normal activity. Make sure it includes this path: /var/lib/docker/volumes.  To see a list of volumes, use this command:
+The host's backup system should be configured to backup the volume data as part of its normal activity. Make sure it includes this path: /var/lib/docker/volumes.  To see a list of volumes, use this command:
 ```
 docker volume ls
 ```
@@ -194,14 +194,14 @@ Logon to VoIP.ms portal, https://voip.ms/
 		* http://flexisip.yourDomian.com:38443/mmsgate
 		* https://flexisip.yourDomian.com:38443/mmsgate
 	* Enable "URL Callback and Webhook URL Retrying"
-	* Edit other setting as needed.
+	* Edit other settings as needed.
 	* Apply changes
 
 * Select "Sub Accounts"->"Manage Sub Accounts".
 * Edit each sub account that will be used with MMSGate.  
 	* Edit "CallerID Number", selecting the DID that will be associated with sending and receiving SMS/MMS messages for this account.
 	* Edit "Encrypted SIP Traffic", matching the clients transport method.
-	* Edit other setting as needed.
+	* Edit other settings as needed.
 	* Apply changes
 
 Once done, test the MMS and SMS messaging.  
@@ -230,9 +230,9 @@ After returning to the project settings, select the Cloud Messaging tab.
 
 Under Firebase Cloud Messaging API (V1), select Manage Service Accounts and the Cloud console will appear.
 
-There should be a service account listed, to it's right, there is an action menu.  Select Manage Keys.
+There should be a service account listed, to its right, there is an action menu.  Select Manage Keys.
 
-Click ADD KEY and select Create new key.  Key type is JSON and click Create.  Download the file named simular to "mmsgate-abcde-f0123456789a.json" and keep it in a safe place.  It needs to be added to the Flexisip server.
+Click ADD KEY and select Create new key.  Key type is JSON and click Create.  Download the file named similar to "mmsgate-abcde-f0123456789a.json" and keep it in a safe place.  It needs to be added to the Flexisip server.
 
 From an Ubuntu 22.04 LTS Desktop system, but NOT the MMSGate server, open a command prompt.
 
@@ -298,7 +298,7 @@ Use the following command to edit the "PackageName" statement, about line 12, to
 ```
 nano app/build.gradle
 ```
-It will look comething like this:
+It will look something like this:
 ```
 	def packageName = "com.yourdomain.linphone"
 ```
@@ -307,7 +307,7 @@ Once back at command prompt, use the following command to edit keystore.properti
 ```
 nano keystore.properties
 ```
-Back at command prompt, use the following command to generate a new keystore.  Enter the same password you selected in the last step.
+Back at command prompt, use the following command to generate a new keystore.  Enter the same password you selected in the previous step.
 ```
 keytool -genkey -v -keystore app/bc-android.keystore -alias linphone-alias -keyalg RSA -keysize 2048 -validity 3650 -dname "OU=None"
 ```
