@@ -166,7 +166,7 @@ routes-config-path=/etc/flexisip/forward.conf
 ```
 Once back at the command prompt, edit the forward.conf file using this command:
 ```
-docker exec -it sudo nano /etc/flexisip/forward.conf
+docker exec -it mmsgate sudo nano /etc/flexisip/forward.conf
 ```
 We need to send all SIP messages from the Linphone clients that are not text, that being MMS or other types that VoIP.ms can't process, over to the MMSGate.  Add a line as per the following:
 ```
@@ -174,7 +174,7 @@ We need to send all SIP messages from the Linphone clients that are not text, th
 ```
 Once back at the command prompt, edit the MMSGate configuration file using this command:
 ```
-docker exec -it sudo nano /etc/flexisip/mmsgate.conf
+docker exec -it mmsgate sudo nano /etc/flexisip/mmsgate.conf
 ```
 Edit the MMSGate config, adding API ID and password, webdns name and other settings as needed.  
 
