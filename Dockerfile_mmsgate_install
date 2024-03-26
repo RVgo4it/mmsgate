@@ -24,6 +24,7 @@ RUN mkdir ~/script && \
 	
 COPY --chown=mmsgate mmsgate/mmsgate.py script
 COPY --chown=mmsgate mmsgate/makexmlconf.py script
+RUN	chmod +x script/*
 
 USER bc
 WORKDIR /home/bc
@@ -31,6 +32,7 @@ WORKDIR /home/bc
 RUN sudo /home/mmsgate/script/mmsgate.py --default-config | sudo tee /etc/flexisip/mmsgate.conf
 
 COPY --chown=bc mmsgate/init.sh .
+RUN	chmod +x init.sh
 
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
 CMD ["/home/bc/init.sh"]
