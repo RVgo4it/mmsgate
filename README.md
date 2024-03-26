@@ -336,7 +336,7 @@ docker image rm linphone-android
 docker system prune
 ```
 ## XML Configuration
-The easiest way to configure a Linphone client is with an XML configration file.  A script is available to make that easier.  It also create QR code images to make finding the XML file from the Linphone easier.
+The easiest way to configure a Linphone client is with an XML configuration file.  A script is available to make that easier.  It will also create QR code images so as to make finding the XML file from the Linphone client easier.
 
 Logon to the MMSGate host server as usual.
 
@@ -366,3 +366,6 @@ options:
   --local-path LOCAL_PATH
                         Use this local path for the file locations. Default is the setting in mmsgate.conf.
 ```
+The script will display the URL needed by the client.  Optionally, it will also display the container path to QR code image file.  Send the end user the URL and/or the QR code image.
+
+From the Linphone client, select "Assistant" and "Fetch remote configuration".  Enter the URL to the XML file or scan the QR code.  
