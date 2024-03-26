@@ -335,3 +335,34 @@ docker container prune
 docker image rm linphone-android
 docker system prune
 ```
+## XML Configuration
+The easiest way to configure a Linphone client is with an XML configration file.  A script is available to make that easier.  It also create QR code images to make finding the XML file from the Linphone easier.
+
+Logon to the MMSGate host server as usual.
+
+If QR code generation is needed, install the qrcode library using this command:
+```
+docker exec -it mmsgate sudo apt install python3-qrcode
+```
+To create the XML config file or files, including passwords, use this command:
+```
+docker exec -it mmsgate sudo su -c "/home/mmsgate/script/makexmlconf.py" mmsgate
+```
+Note: It is recommended that once the client is configured, for security reasons, remove the XML config file from the container.
+
+If no password is to be included in the XML file, causing the client to prompt for a password, use this command:
+```
+docker exec -it mmsgate sudo su -c "/home/mmsgate/script/makexmlconf.py --no-password" mmsgate
+```
+The following are all the command options available:
+```
+usage: makexmlconf.py [-h] [--no-password] [--add-path ADD_PATH] [--web-path WEB_PATH] [--local-path LOCAL_PATH]
+
+options:
+  -h, --help            show this help message and exit
+  --no-password         Do not store the password in the XML config file.
+  --add-path ADD_PATH   Add this path to the local and web paths. Default is "conf".
+  --web-path WEB_PATH   Use this URL path for the locations. Default is the settings in mmsgate.conf.
+  --local-path LOCAL_PATH
+                        Use this local path for the file locations. Default is the setting in mmsgate.conf.
+```
