@@ -1,0 +1,64 @@
+# syntax=docker/dockerfile:1
+
+# This builds a PJSIP image from the flexisip installed image
+FROM flexisip as build
+
+# master or a supported branch
+ARG BRANCH=support-2.14.1
+
+MAINTAINER https://github.com/RVgo4it
+
+# install needed apps
+USER root
+RUN apt -y update && \
+	apt -y install git make gcc pkg-config libasound2-dev g++ swig python3-dev libssl-dev && \
+	apt -y autoremove && \
+	apt -y clean
+
+# Configure user pj
+RUN useradd -ms /bin/bash pj && \
+    echo 'pj:cotcot' | chpasswd && \
+    echo 'pj ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
+
+USER pj
+WORKDIR /home/pj
+
+RUN	git config --global --add safe.directory *
+
+RUN --mount=type=cache,target=/home/pj/pjproject,uid=1001,gid=1001 \
+	if [ ! -e ~/pjproject/README.md ] ; then \
+	  git clone https://github.com/pjsip/pjproject --recursive -b $BRANCH; \
+	fi && \
+	cd ~/pjproject && \
+	./configure --prefix=/home/pj/install/usr/local CFLAGS="-fPIC" && \
+	make dep && \
+	make && \
+	sudo make install && \
+	cd pjsip-apps/src/swig/python && \
+	make && \
+	make install && \
+	cp test.py ~ && \
+	sudo python3 setup.py install --root /home/pj/install
+
+FROM flexisip
+
+MAINTAINER https://github.com/RVgo4it
+
+USER root
+RUN apt -y update && \
+	apt -y install libasound2 && \
+	apt -y autoremove && \
+	apt -y clean
+
+COPY --from=build /home/pj/install/usr/local/ /usr/local/
+
+# Configure user pj
+RUN useradd -ms /bin/bash pj && \
+    echo 'pj:cotcot' | chpasswd && \
+    echo 'pj ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
+
+USER pj
+WORKDIR /home/pj
+
+COPY --from=build /home/pj/test.py /home/pj
+

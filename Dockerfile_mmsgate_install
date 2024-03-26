@@ -1,0 +1,38 @@
+# syntax=docker/dockerfile:1
+
+# This builds a MMSgate image from the flexisip installed and pjsip installed images
+FROM pjsip
+
+MAINTAINER https://github.com/RVgo4it
+
+# install needed apps
+USER root
+RUN apt install -y python3-suds dumb-init
+
+# Configure user mmsgate, no sudo
+RUN useradd -ms /bin/bash mmsgate && \
+    echo 'mmsgate:notnot' | chpasswd
+
+# user the mmsgate script runs as
+USER mmsgate
+WORKDIR /home/mmsgate
+
+# data and mmsmedia will be volumes at run time
+RUN mkdir ~/script && \
+	mkdir ~/data && \
+	mkdir ~/mmsmedia
+	
+COPY --chown=mmsgate mmsgate/mmsgate.py script
+COPY --chown=mmsgate mmsgate/makexmlconf.py script
+
+USER bc
+WORKDIR /home/bc
+
+RUN sudo /home/mmsgate/script/mmsgate.py --default-config | sudo tee /etc/flexisip/mmsgate.conf
+
+COPY --chown=bc mmsgate/init.sh .
+
+ENTRYPOINT ["/usr/bin/dumb-init", "--"]
+CMD ["/home/bc/init.sh"]
+
+

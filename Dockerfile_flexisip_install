@@ -1,0 +1,167 @@
+# syntax=docker/dockerfile:1
+
+FROM ubuntu:22.04 as build
+
+# master or other releases
+ARG BRANCH=release/2.3
+
+MAINTAINER https://github.com/RVgo4it
+
+  # Update
+RUN apt -y update && \
+	# Install common tools
+	apt -y install sudo \
+	vim \
+	wget \
+	file \
+	# Install development tools
+	ccache \
+	clang \
+	cmake \
+	doxygen \
+	elfutils \
+	g++ \
+	gdb \
+	git \
+	llvm \
+	make \
+	ninja-build \
+	python3 \
+	python3-pip \
+	yasm \
+	# Install all dependencies needed for Flexisip
+	libssl-dev \
+	libboost-dev \
+	libboost-system-dev \
+	libboost-thread-dev \
+	libhiredis-dev \
+	libjansson-dev \
+	libjsoncpp-dev \
+	libsqlite3-dev \
+	libpq-dev \
+	libmariadb-dev \
+	libmariadb-dev-compat \
+	mariadb-server \
+	libnghttp2-dev \
+	libprotobuf-dev \
+	libsnmp-dev \
+	libxerces-c-dev \
+	libsrtp2-dev \
+	libgsm1-dev \
+	libopus-dev \
+	libmbedtls-dev \
+	libspeex-dev \
+	libspeexdsp-dev \
+	libxml2-dev \
+	protobuf-compiler \
+	redis-server \
+	# Dependencies of the B2BUA
+	libvpx-dev && \
+	# Clean	
+	apt -y autoremove && \
+	apt -y clean
+
+# Configure user bc
+RUN useradd -ms /bin/bash bc && \
+    echo 'bc:cotcot' | chpasswd && \
+    echo 'bc ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
+
+WORKDIR /root
+
+# Install libnghttp2_asio 1.43.0
+RUN --mount=type=cache,target=/root/nghttp2,uid=1000,gid=1000 \
+	mkdir -p /root/nghttp2 && \
+	cd /root/nghttp2 && \
+	version=1.43.0 && \
+	srcdir=nghttp2-${version} && \
+	srcpkg=${srcdir}.tar.gz && \
+	bindir=build_libnghttp2_asio && \
+	if [ ! -e ${srcpkg} ] ; then \
+	  wget https://github.com/nghttp2/nghttp2/releases/download/v${version}/${srcpkg}; \
+	fi && \
+	tar -xf ${srcpkg} && \
+	mkdir -p ${bindir} && \
+	cmake -S ${srcdir} -B ${bindir} -GNinja -DENABLE_ASIO_LIB=ON && \
+	cmake --build ${bindir} --target install && \
+	cmake --install ${bindir} --prefix /root/install
+
+# Switch for 'bc' user
+USER bc
+WORKDIR /home/bc
+
+# Install python3 modules.
+# This must be done as 'bc' user because some python modules are installed into /usr/local/lib when pip is invoked
+# as root, and rpmbuild prevent python from seaching its modules in this prefix. Using 'bc' user make the python
+# modules to be installed into /home/bc/.local/bin.
+RUN python3 -m pip install --user pystache six
+ENV PATH=$PATH:/home/bc/.local/bin
+
+# CVE-2022-24765, from git 2.35.2 onward
+RUN git config --global --add safe.directory '*'
+
+RUN --mount=type=cache,target=/home/bc/flexisip,uid=1000,gid=1000 \
+	cd ~ && \
+	if [ ! -e ~/flexisip/README.md ] ; then \
+	  git clone https://github.com/BelledonneCommunications/flexisip --recursive -b $BRANCH; \
+	fi && \
+	cd flexisip && \
+	mkdir -p ./build && \
+	cmake -S . -B ./build -DENABLE_SOCI_POSTGRESQL_BACKEND=OFF -DENABLE_SNMP=OFF -DENABLE_PRESENCE=ON \
+	 -DSYSCONF_INSTALL_DIR=/etc -DCMAKE_INSTALL_PREFIX=/opt/belledonne-communications \
+	 -DFLEXISIP_SYSTEMD_INSTALL_DIR=/root/install/usr/lib/systemd/system && \
+	make -C ./build -j5 && \
+	sudo make -C ./build install
+
+FROM ubuntu:22.04
+
+MAINTAINER https://github.com/RVgo4it
+
+RUN apt -y update && \
+	# Install common tools
+	apt -y install sudo \
+	nano \
+	# Install all dependencies needed for Flexisip
+	libssl3 \
+	libhiredis0.14 \
+	libjsoncpp25 \
+	libprotobuf23 \
+	libxerces-c3.2 \
+	libgsm1 \
+	libopus0 \
+	libspeex1 \
+	libspeexdsp1 \
+	libxml2 \
+	redis-server \
+	python3 \
+	python3-pystache \
+	python3-google-auth \
+	python3-requests \
+	# Dependencies of the B2BUA
+	libvpx7	&& \
+	# Clean	
+	apt -y autoremove && \
+	apt -y clean
+
+# install the bin exec and lib files, also config
+COPY --from=build /root/install/ /usr/local/
+RUN	mkdir /etc/flexisip
+COPY --from=build /etc/flexisip/flexisip.conf /etc/flexisip/flexisip.conf
+RUN	mkdir /opt/belledonne-communications
+COPY --from=build /opt/belledonne-communications/ /opt/belledonne-communications/
+
+# Configure user bc
+RUN useradd -ms /bin/bash bc && \
+    echo 'bc:cotcot' | chpasswd && \
+    echo 'bc ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
+
+# Switch for 'bc' user
+USER bc
+WORKDIR /home/bc
+
+# Install python3 modules.
+# This must be done as 'bc' user because some python modules are installed into /usr/local/lib when pip is invoked
+# as root, and rpmbuild prevent python from seaching its modules in this prefix. Using 'bc' user make the python
+# modules to be installed into /home/bc/.local/bin.
+#RUN	python3 -m pip install --user pystache six
+ENV	PATH=$PATH:/home/bc/.local/bin
+
