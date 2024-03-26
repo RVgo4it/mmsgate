@@ -340,7 +340,7 @@ The easiest way to configure a Linphone client is with an XML configuration file
 
 Logon to the MMSGate host server as usual.
 
-If QR code generation is needed, install the qrcode library using this command:
+If QR code generation is needed, install the Python qrcode library using this command:
 ```
 docker exec -it mmsgate sudo apt install python3-qrcode
 ```
