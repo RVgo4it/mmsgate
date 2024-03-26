@@ -139,10 +139,15 @@ rm -r ~/mmsgate-system
 Once Flexisip working as expected, move on to setup MMSGate.
 
 * Tips:
-	* For SIPS (TLS), the recommended transport, it's best to import the client config via "Fetch Remote Configuration" with the SIPS URI already defined in the XML.  Otherwise, client may still try to use SIP and fail.  
+	* For SIPS (TLS), the recommended transport, it's best to import the client config via "Fetch Remote Configuration" with the SIPS URI already defined in the XML.  Otherwise, client may still try to use SIP and fail.  Details in the XML Config section of this README. 
 	* For Android clients to use push notification, you'll need a https://firebase.google.com project definition "google-services.json" and authentication keys similar to "MyMMSgateProj-fedcba-0123456789ac.json".  Details in the Android Push Notification section of this README.
 	* The authentication keys are used in Flexisip server configuration and the project definition is used in compiling https://gitlab.linphone.org/BC/public/linphone-android.  
 	* If Flexisip is behind a NAT firewall, use this guide: https://wiki.linphone.org/xwiki/wiki/public/view/Flexisip/HOWTOs/Deploying%20flexisip%20behind%20a%20NAT/
+	* To help prevent unauthorized use of the proxy, you can enable Flexisip's garbage module and have it trash all unwanted traffic.
+		* Edit the /etc/flexisip/flexisip.conf file.
+		* Find the "[module::GarbageIn]" section.
+		* Set "enabled=true"
+		* Set filter to "filter= ! ( from.uri.user contains '123456_' || to.uri.user contains '123456_' )" replacing 123456 with your account prefix.  
 	* To confirm the Linphone client is passing it's push notification settings in its contact URI, use a command like the following and look for "pn" parameters:
 ```
 docker exec -it mmsgate sudo /opt/belledonne-communications/bin/flexisip_cli.py REGISTRAR_GET sip:123456_bob@deluth2.voip.ms
@@ -311,7 +316,7 @@ Back at command prompt, use the following command to generate a new keystore.  E
 ```
 keytool -genkey -v -keystore app/bc-android.keystore -alias linphone-alias -keyalg RSA -keysize 2048 -validity 3650 -dname "OU=None"
 ```
-Compile the Linphone app
+Compile the Linphone app.
 ```
 ./gradlew AssembleRelease
 ```
