@@ -240,7 +240,7 @@ There should be a service account listed, to its right, there is an action menu.
 
 Click ADD KEY and select Create new key.  Key type is JSON and click Create.  Download the file named similar to "mmsgate-abcde-f0123456789a.json" and keep it in a safe place.  It needs to be added to the Flexisip server.
 
-From an Ubuntu Desktop 22.04 LTS system (recommended), or most any system with Docker, except for Raspberry Pi, open a command prompt.
+From an Ubuntu Desktop 22.04 LTS system (recommended), or most any Intel/AMD x86_64/amd64 system with Docker, open a command prompt.  The compilation process for an Android application will need significant memory, 8GB or more of memory is recommended.  
 
 If Docker not already installed, do this:
 ```
