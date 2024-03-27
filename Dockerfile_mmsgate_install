@@ -21,20 +21,23 @@ WORKDIR /home/mmsgate
 RUN mkdir ~/script && \
 	mkdir ~/data && \
 	mkdir ~/mmsmedia
-	
+
+# Copy over the scripts
 COPY --chown=mmsgate mmsgate/mmsgate.py script
 COPY --chown=mmsgate mmsgate/makexmlconf.py script
 RUN	chmod +x script/*
 
+# Default user for the container
 USER bc
 WORKDIR /home/bc
 
+# Generate the default config file
 RUN sudo /home/mmsgate/script/mmsgate.py --default-config | sudo tee /etc/flexisip/mmsgate.conf
 
+# Copy over the initial script that starts the other programs
 COPY --chown=bc mmsgate/init.sh .
 RUN	chmod +x init.sh
 
+# Startup config
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
 CMD ["/home/bc/init.sh"]
-
-
