@@ -31,7 +31,7 @@ sudo apt update
 sudo apt upgrade
 sudo hostnamectl set-hostname flexisip.yourDomian.com
 ```
-Shutdown and reboot the host as usual or using this command:
+Shutdown and reboot the host as usual or use this command:
 ```
 sudo shutdown -r now
 ```
