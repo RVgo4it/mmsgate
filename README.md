@@ -134,7 +134,8 @@ Test voice calls and SMS messaging from your Linphone clients.  MMS messaging is
 
 Once the builds are done, you can delete the downloaded files.
 ```
-rm -r ~/mmsgate-system
+cd ~
+rm -rf ~/mmsgate-system
 ```
 Once Flexisip working as expected, move on to setup MMSGate.
 
