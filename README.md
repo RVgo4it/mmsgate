@@ -166,7 +166,7 @@ We need Flexisip to be able to talk to MMSGate via local loopback IP.  In the [g
 ```
 sips:localhost;maddr=127.0.0.1;tls-verify-outgoing=0 sip:localhost;maddr=127.0.0.1
 ```
-Also, need to define a forward rule for sending MMS messages over to MMSGate.  In the [module::Forward] section, add option as follows:
+Also, need to define a forward rule for sending MMS messages over to MMSGate.  In the [module::Forward] section, enable it and add option as follows:
 ```
 routes-config-path=/etc/flexisip/forward.conf
 ```
