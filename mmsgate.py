@@ -355,12 +355,17 @@ class web_class():
     if cfg.get("web","protocol") == "https":
       if cfg.exists("web","cert") and cfg.exists("web","cert"):
         import ssl
-        cert = cfg.get("web","cert")
-        key = cfg.get("web","key")
-        _logger.debug(str(("Loaging https crypto:",cert,key)))
-        context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-        context.load_cert_chain(cert, key)
-        httpd.socket = context.wrap_socket(httpd.socket, server_side=True )
+        try:
+          cert = cfg.get("web","cert")
+          key = cfg.get("web","key")
+          _logger.debug(str(("Loaging https crypto:",cert,key)))
+          context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+          context.load_cert_chain(cert, key)
+          httpd.socket = context.wrap_socket(httpd.socket, server_side=True )
+        except:
+          PrintException()
+          _logger.error("Failed to load SSL/TLS!  No encryption activated.  Exiting...")
+          exit()
       else:
         raise ValueError("For https protocol, section/option of web/cert and web/key are required in config file.  Please correct.")
     # the thread for the web server
@@ -1016,10 +1021,10 @@ if __name__ == "__main__":
   # web thread will talk to the DB thread
   web.db_q = db.db_q
   # web hook needs did_accts.  wait for it to populate
-  for i in range(10):
+  for i in range(30):
     if len(api.did_accts) == 0: break
     time.sleep(1)
-  if i == 9:
+  if i == 29:
     _logger.error("API thread took too long to initilize DID accounts dictionary.")
     exit()
   else:
