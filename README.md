@@ -14,7 +14,7 @@ It is strongly recommended to have the following equipment, resources, informati
 
 * Ubuntu Server 22.04 LTS
 	* Either a Raspberry Pi aarch64/arm64 or Intel/AMD x86_64/amd64
-	* Recommend: Raspberry Pi 4 Model B with 2G or more memory.  
+	* Recommend: Raspberry Pi 4 Model B with 4G or more memory.  
 * DNS name that will point to the Flexisip/MMSGate server, i.e. flexisip.yourDomian.com
 * One or more VoIP.ms DIDs and one or more sub accounts.
 * For SIPS (TLS) transport and web HTTPS, the certificate chain and private key for the DNS name.
@@ -182,9 +182,13 @@ Once back at the command prompt, edit the MMSGate configuration file using this 
 ```
 docker exec -it mmsgate sudo nano /etc/flexisip/mmsgate.conf
 ```
-Edit the MMSGate config, adding API ID and password, webdns name and other settings as needed.  
+Add API ID and password, "[api]" section, options "apiid" and "apipw", also in section "[web]", option "webdns" name.  Add other settings as needed.
 
 Once back at the command prompt, restart the mmsgate container.
+
+Tasks MMSGate does not do and should be addressed:
+* MMS media is taged as expiring in one year.  However, MMSGate does not automatically remove media after that time.
+* Records in the SQLite database are not automatically removed.
 
 ## Setup VoIP.ms
 
