@@ -190,3 +190,5 @@ for acct in rslta["accounts"]:
       imgfile = destdir+user+".png"
       print("Creating QRCode image file at:",imgfile)
       img.save(imgfile)
+      iurl=webpath+user+".png"
+      print("PNG QRCode image file available at:", iurl)
