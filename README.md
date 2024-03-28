@@ -191,7 +191,6 @@ Tasks MMSGate does not do and should be addressed:
 * Records in the SQLite database are not automatically removed.
 
 ## Setup VoIP.ms
-
 The following will configure your VoIP.ms account to work with MMSGate.
 
 Logon to VoIP.ms portal, https://voip.ms/
@@ -208,6 +207,7 @@ Logon to VoIP.ms portal, https://voip.ms/
 	* Apply changes
 
 * Select "Sub Accounts"->"Manage Sub Accounts".
+* There is to be one sub account for each Linphone client.
 * Edit each sub account that will be used with MMSGate.  
 	* Edit "CallerID Number", selecting the DID that will be associated with sending and receiving SMS/MMS messages for this account.
 	* Edit "Encrypted SIP Traffic", matching the clients transport method.
