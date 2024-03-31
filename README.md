@@ -378,7 +378,7 @@ The script will display the URL needed by the client.  Optionally, it will also 
 From the Linphone client, select "Assistant" and "Fetch remote configuration".  Enter the URL to the XML file or scan the QR code.  
 
 ## Flexisip Message Queue Database
-Normally, when a Flexisip receives a message for a Linphone client from MMSGate, it waked up the client via Push Notification and delivers it immediately.  However, sometimes the client is unresponsive. In this case, Flexisip buffers the message in memory until the cline is available.  
+Normally, when a Flexisip receives a message for a Linphone client from MMSGate, it waked up the client via Push Notification and delivers it immediately.  However, sometimes the client is unresponsive. In this case, Flexisip buffers the message in memory until the client is available.  
 
 If Flexisip were to be restarted, these buffered messages in memory would be lost.  To prevent this, use this procedure to create a database for the messages.
 
