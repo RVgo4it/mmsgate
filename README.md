@@ -378,7 +378,7 @@ The script will display the URL needed by the client.  Optionally, it will also 
 From the Linphone client, select "Assistant" and "Fetch remote configuration".  Enter the URL to the XML file or scan the QR code.  
 
 ## Flexisip Message Queue Database
-Normally, when a Flexisip receives a message for a Linphone client from MMSGate, it waked up the client via Push Notification and delivers it immediatelly.  However, sometimes the client is unresponsive. In this case, Flexisip buffers the message in memory until the cline is available.  
+Normally, when a Flexisip receives a message for a Linphone client from MMSGate, it waked up the client via Push Notification and delivers it immediately.  However, sometimes the client is unresponsive. In this case, Flexisip buffers the message in memory until the cline is available.  
 
 If Flexisip were to be restarted, these buffered messages in memory would be lost.  To prevent this, use this procedure to create a database for the messages.
 
@@ -397,11 +397,11 @@ echo $(date -Ins) - Starting MariaDB
 sudo mysqld_safe &
 sleep 10
 ```
-Once back at command propt, restart the mmsgate container.  Once restarted, open a MariaDB client prompt using this command:
+Once back at command prompt, restart the mmsgate container.  Once restarted, open a MariaDB client prompt using this command:
 ```
 docker exec -it mmsgate sudo mysql
 ```
-Use the following command to create the database and user for Flexisip:
+Use the following command to create the database and user for Flexisip messages:
 ```
 CREATE DATABASE flexisip_msgs;
 CREATE USER 'flexisip'@localhost IDENTIFIED BY 'password1';
