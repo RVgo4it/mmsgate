@@ -25,29 +25,14 @@ except ImportError:
 import argparse
 from pathlib import Path
 
-# load the config file
-filename = "/etc/flexisip/mmsgate.conf"
-if os.path.exists(filename):
-  cfg = configparser.ConfigParser()
-  cfg.read(filename)
-else:
-  raise ValueError("Config file not found: "+filename)
-  exit()
+# command args for this script
+args = [("--add-path",{"default":"conf","type":str,"help":"Add this path to the local and web paths.  Default is \"conf\"."}),
+  ("--web-path",{"type":str,"help":"Use this URL path for the locations.  Default is the settings in mmsgate.conf."}),
+  ("--local-path",{"type":str,"help":"Use this local path for the file locations.  Default is the setting in mmsgate.conf."}),
+  ("--no-password",{"action":"store_true","help":"Do not store the password in the XML config file."})]
 
-# load the same defaults as mmsgate.py
-defaults = {"webport": "38443",
-    "protocol": "http",
-    "pathget": "/mmsmedia",
-    "localmedia": "~/mmsmedia"}
-cfg["DEFAULT"] = defaults
-
-# get some optional command line arguments
-parser = argparse.ArgumentParser()
-parser.add_argument("--no-password",action="store_true",help="Do not store the password in the XML config file.")
-parser.add_argument("--add-path",default="conf",type=str,help="Add this path to the local and web paths.  Default is \"conf\".")
-parser.add_argument("--web-path",type=str,help="Use this URL path for the locations.  Default is the settings in mmsgate.conf.")
-parser.add_argument("--local-path",type=str,help="Use this local path for the file locations.  Default is the setting in mmsgate.conf.")
-args = parser.parse_args()
+from mmsgate import config_class
+cfg = config_class(args)
 
 # need the API id/pw
 apiid = cfg.get("api","apiid")
@@ -57,15 +42,15 @@ proxy = cfg.get("web","webdns")
 # path to put files
 destdir = cfg.get("web","localmedia")+"/"
 # url path to get files
-webpath = cfg.get("web","protocol")+"://"+proxy+":"+cfg.get("web","webport")+cfg.get("web","pathget")+"/"
-if args.web_path:
+webpath = cfg.get("web","protocol")+"://"+proxy+":"+str(cfg.get("web","webport"))+cfg.get("web","pathget")+"/"
+if cfg.args.web_path:
   webpath = args.web_path+"/"
-if args.local_path:
+if cfg.args.local_path:
   destdir = args.local_path+"/"
 destdir = os.path.expanduser(destdir)
-if args.add_path != '':
-  destdir = destdir+args.add_path+"/"
-  webpath = webpath+args.add_path+"/"
+if cfg.args.add_path != '':
+  destdir = destdir+cfg.args.add_path+"/"
+  webpath = webpath+cfg.args.add_path+"/"
 Path(destdir).mkdir(parents=True, exist_ok=True)
 
 print("destdir",destdir)
@@ -173,7 +158,7 @@ for acct in rslta["accounts"]:
     user = acct["account"]
     pw = acct["password"]
     m = hashlib.md5()
-    if args.no_password:
+    if cfg.args.no_password:
       m.update(("no password").encode('utf-8'))
     else:
       m.update((user+":"+dom+":"+pw).encode('utf-8'))

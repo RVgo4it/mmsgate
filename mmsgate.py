@@ -11,7 +11,8 @@
 # NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
 # OF THIS SOFTWARE.
 
-# v0.0.1
+# v0.1.0 3/30/2024 Added tracking of VoIP.ms message id and flex args
+# v0.0.1 3/29/2024 Initial
 
 # some of the usual imports
 import time
@@ -60,7 +61,7 @@ class pjsip_class():
         fromname,fromdom = self.pjsip.uri2name(prm.fromUri)
         toname,todom = self.pjsip.uri2name(prm.toUri)
         # queue it up in the DB for forwarding
-        self.pjsip.db_q.put_nowait(("MsgNew",fromname,fromdom,toname,todom,prm.msgBody,"OUT",None,"MMS"))
+        self.pjsip.db_q.put_nowait(("MsgNew",fromname,fromdom,toname,todom,prm.msgBody,"OUT",None,"MMS",None))
 
     try:
       # Create and initialize the library
@@ -458,13 +459,13 @@ class web_class():
                       if filter: continue
                       # SMS message?
                       if payload["type"] == "SMS":
-                        self.db_q.put_nowait(("MsgNew",payload["from"]["phone_number"],None,toid,None,payload["text"],"IN",todid["phone_number"],"SMS"))
+                        self.db_q.put_nowait(("MsgNew",payload["from"]["phone_number"],None,toid,None,payload["text"],"IN",todid["phone_number"],"SMS",payload["id"]))
                       # must be MMS
                       else:
                         if payload["text"] != "":
-                          self.db_q.put_nowait(("MsgNew",payload["from"]["phone_number"],None,toid,None,payload["text"],"IN",todid["phone_number"],"SMS"))
+                          self.db_q.put_nowait(("MsgNew",payload["from"]["phone_number"],None,toid,None,payload["text"],"IN",todid["phone_number"],"SMS",payload["id"]))
                         for mmsmsg in mms_msaages:
-                          self.db_q.put_nowait(("MsgNew",payload["from"]["phone_number"],None,toid,None,mmsmsg,"IN",todid["phone_number"],"MMS"))
+                          self.db_q.put_nowait(("MsgNew",payload["from"]["phone_number"],None,toid,None,mmsmsg,"IN",todid["phone_number"],"MMS",payload["id"]))
                   else:
                     _logger.error("The DID "+todid["phone_number"]+" not found in api.did_accts.keys(): "+str(self.api.did_accts.keys()))
             # something very wrong
@@ -625,7 +626,7 @@ class db_class():
     conn.create_function("unixtime", 1, unixtime)
     # table of messages.
     conn.execute("CREATE TABLE IF NOT EXISTS send_msgs (rcvd_ts INT DEFAULT (unixtime(0)), fromid TEXT, toid TEXT, fromdom TEXT, todom TEXT, msgtype TEXT, "+ \
-      "did TEXT, direction TEXT, message TEXT, msgstatus TEXT DEFAULT 'QUEUED', sent_ts INT, init_ts INT DEFAULT (unixtime(0)), trycnt INT DEFAULT 0);")
+      "did TEXT, direction TEXT, message TEXT, msgstatus TEXT DEFAULT 'QUEUED', sent_ts INT, init_ts INT DEFAULT (unixtime(0)), trycnt INT DEFAULT 0, msgid TEXT);")
     # indexes for selects and updates.  partial indexes are restricted to queued/active messages.
     conn.execute("CREATE INDEX IF NOT EXISTS sm_to ON send_msgs (toid,todom,rcvd_ts) WHERE msgstatus NOT IN ('200','202');")
     conn.execute("CREATE INDEX IF NOT EXISTS sm_stats1 ON send_msgs (direction,sent_ts,msgstatus);")
@@ -639,7 +640,7 @@ class db_class():
     sql_update_status_dom_via_rowid = "UPDATE send_msgs SET sent_ts = unixtime(0),msgstatus = ?, todom = ?, fromdom = ?, trycnt = trycnt + 1 WHERE rowid = ?;"
     # note: msgstatus is in where clause twice to get sqlite to use sm_hs index.
     sql_update_status_via_to = "UPDATE send_msgs SET sent_ts = unixtime(0),msgstatus = ? WHERE toid = ? AND msgstatus NOT IN ('200','202') AND msgstatus = 'TRYING';"
-    sql_insert_new = "INSERT INTO send_msgs(fromid,fromdom,toid,todom,message,direction,did,msgtype) VALUES(?,?,?,?,?,?,?,?);"
+    sql_insert_new = "INSERT INTO send_msgs(fromid,fromdom,toid,todom,message,direction,did,msgtype,msgid) VALUES(?,?,?,?,?,?,?,?,?);"
     # query for stats
     sql_stats = "SELECT direction as dir, 'Sent last 24h' as stat, COUNT(rowid) AS count FROM send_msgs WHERE msgstatus IN ('200','202') AND sent_ts > unixtime(-60*60*24) GROUP BY direction "+ \
       "UNION "+ \
@@ -748,8 +749,8 @@ class db_class():
             self.update_row_db(conn,sql_update_status_via_to,(str(prmcode),toid))
           # got a new message.  place it in the db as a queued message to send.
           if item[0] == "MsgNew":
-            mtype,fromid,fromdom,toid,todom,message,direction,did,msgtype = item
-            cnt = conn.execute(sql_insert_new,(fromid,fromdom,toid,todom,message,direction,did,msgtype))
+            mtype,fromid,fromdom,toid,todom,message,direction,did,msgtype,msgid = item
+            cnt = conn.execute(sql_insert_new,(fromid,fromdom,toid,todom,message,direction,did,msgtype,msgid))
             conn.commit()
           # shutdown?
           if item[0] == "Done":
@@ -954,18 +955,17 @@ class config_class:
 
   _logger = None
   # configure the class
-  def __init__(self):
+  def __init__(self,args_dict):
     import argparse
     import logging
     # get any command line arguments
     parser = argparse.ArgumentParser()
-    parser.add_argument("--default-config",action="store_true",help="Print a default config file and exit.")
     parser.add_argument("--config-file",default="/etc/flexisip/mmsgate.conf",type=str,help="Load this config file.  Default is /etc/flexisip/mmsgate.conf.")
-    parser.add_argument("--pjsip-debug",default=-1,type=int,help="Override the PJSIP log levels from the configuration file. Values 0-5.")
-    parser.add_argument("--mmsgate-logger",default="",type=str,help="Override the MMSGate log levels from the configuration file. Value is DEBUG, INFO, WARNING, ERROR or CRITICAL.")
+    for opt,arg in args_dict:
+      parser.add_argument(opt,**arg)
     args = parser.parse_args() 
     # need to print default config w/ descriptions?
-    if args.default_config:
+    if hasattr(args,"default_config") and args.default_config:
       self.print_default_config()
       exit()
     # load the config file
@@ -974,7 +974,7 @@ class config_class:
     date_fmt = '%Y-%m-%d %H:%M:%S'
     log_format = "%(levelname)s %(asctime)s.%(msecs)03d %(threadName)s %(name)s.%(funcName)s %(message)s"
     try:
-      if args.mmsgate_logger != "":
+      if hasattr(args,"mmsgate_logger") and args.mmsgate_logger != "":
         loglvl = eval("logging."+args.mmsgate_logger)
       else:
         loglvl = eval("logging."+self.get("mmsgate","logger"))
@@ -987,7 +987,7 @@ class config_class:
       logging.basicConfig(format=log_format, datefmt=date_fmt, level=loglvl)
     self._logger = logging.getLogger(__name__)
     # override the config file"s debug levels with command options
-    if args.pjsip_debug != -1:
+    if hasattr(args,"pjsip_debug") and args.pjsip_debug != -1:
       self.configobj["sip"]["siploglevel"] = str(args.pjsip_debug)
       self.configobj["sip"]["sipconsoleloglevel"] = str(args.pjsip_debug)
     try:
@@ -995,13 +995,17 @@ class config_class:
       from flexisip_cli import sendMessage, getpid
     except:
       raise ValueError("Error: flexisip_cli.py not found in "+cfg.get("mmsgate","flexisippath"))
+    self.args = args
 
 #
 # main()
 #
 if __name__ == "__main__":
   # configure everything
-  cfg = config_class()
+  args = [("--default-config",{"action":"store_true","help":"Print a default config file and exit."}),
+    ("--pjsip-debug",{"default":-1,"type":int,"help":"Override the PJSIP log levels from the configuration file. Values 0-5."}),
+    ("--mmsgate-logger",{"default":"","type":str,"help":"Override the MMSGate log levels from the configuration file. Value is DEBUG, INFO, WARNING, ERROR or CRITICAL."})]
+  cfg = config_class(args)
   _logger = cfg._logger
   # setup the API thread
   api = api_class()
