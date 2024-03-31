@@ -190,7 +190,7 @@ Once back at the command prompt, restart the mmsgate container.
 
 Tasks MMSGate does not do and should be addressed:
 * MMS media is taged as expiring in one year.  However, MMSGate does not automatically remove media after that time.
-* Records in the SQLite database are not automatically removed.
+* Records in the MMSGate database are not automatically removed.  See the MMSGate Database section of this document to address this.  
 
 ## Setup VoIP.ms
 The following will configure your VoIP.ms account to work with MMSGate.
