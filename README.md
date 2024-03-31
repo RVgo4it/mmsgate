@@ -120,6 +120,8 @@ To start or stop the container, use these commands:
 docker stop mmsgate
 docker start mmsgate
 ```
+Note: Try to avoid restarting Flexisip.  Restarting Flexisip will cause loss of current registrations and buffered messages, both kept in memory.  It will require all the clients to re-register via opening the client.  See the Flexisip Message Queue Database section of this document for details.  
+
 Docker can consume significant disk space.  Use these commands to monitor and clean up space.
 ```
 df -h
@@ -188,7 +190,7 @@ Once back at the command prompt, restart the mmsgate container.
 
 Tasks MMSGate does not do and should be addressed:
 * MMS media is taged as expiring in one year.  However, MMSGate does not automatically remove media after that time.
-* Records in the SQLite database are not automatically removed.
+* Records in the MMSGate database are not automatically removed.  See the MMSGate Database section of this document to address this.  
 
 ## Setup VoIP.ms
 The following will configure your VoIP.ms account to work with MMSGate.
@@ -374,3 +376,74 @@ options:
 The script will display the URL needed by the client.  Optionally, it will also display the container path to QR code image file.  Send the end user the URL and/or the QR code image.
 
 From the Linphone client, select "Assistant" and "Fetch remote configuration".  Enter the URL to the XML file or scan the QR code.  
+
+## Flexisip Message Queue Database
+Normally, when a Flexisip receives a message for a Linphone client from MMSGate, it waked up the client via Push Notification and delivers it immediately.  However, sometimes the client is unresponsive. In this case, Flexisip buffers the message in memory until the client is available.  
+
+If Flexisip were to be restarted, these buffered messages in memory would be lost.  To prevent this, use this procedure to create a database for the messages.
+
+From the host, use this command to install MariaDB server:
+```
+docker exec -it mmsgate sudo apt install mariadb-server
+```
+Use this command to edit the initialization script:
+```
+docker exec -it mmsgate nano init.sh
+```
+Add the following lines starting about line 6:
+```
+# Start MariaDB
+echo $(date -Ins) - Starting MariaDB
+sudo mysqld_safe &
+sleep 10
+```
+Once back at command prompt, restart the mmsgate container.  Once restarted, open a MariaDB client prompt using this command:
+```
+docker exec -it mmsgate sudo mysql
+```
+Use the following command to create the database and user for Flexisip messages:
+```
+CREATE DATABASE flexisip_msgs;
+CREATE USER 'flexisip'@localhost IDENTIFIED BY 'password1';
+GRANT ALL PRIVILEGES ON *.* TO 'flexisip'@localhost;
+FLUSH PRIVILEGES;
+exit
+```
+Edit the flexisip.conf file, find the [module::Router] section and edit/add the following options:
+```
+message-database-enabled=true
+message-database-backend=mysql
+message-database-connection-string=db='flexisip_msgs' user='flexisip' password='password1' host='localhost'
+```
+Restart the mmsgate container.  
+
+## MMSGate Database
+MMSGate uses a SQLite3 database with a single table.  All messages received by MMSGate, inbound or outbound, are stored in this database.
+
+To view the database, and for other database actions, you’ll need to install the SQLite3 command line tools into the container.  Use the following command on the host to install them:
+```
+docker exec -it mmsgate sudo apt install sqlite3
+```
+Then, assuming the default database location, use this command to display the table:
+```
+docker exec -it mmsgate sudo su -c "sqlite3 -box ~/data/mmsgate.sqlite \"SELECT rowid,msgid,strftime('%Y-%m-%d %H:%M',datetime(rcvd_ts, 'unixepoch', 'localtime')) as rcvd_ts,strftime('%Y-%m-%d %H:%M',datetime(sent_ts, 'unixepoch', 'localtime')) as sent_ts,fromid,fromdom,toid,todom,substr(message,1,15) as message,direction as dir,msgstatus as msgstat,did,msgtype,trycnt FROM send_msgs;\"" mmsgate
+```
+The database may grow to an excessive size.  To delete messages received over 30 days ago, use this command:
+```
+docker exec -it mmsgate sudo su -c "sqlite3 ~/data/mmsgate.sqlite \"DELETE FROM send_msgs where rcvd_ts < CAST(strftime('%s',date('now','-30 days')) AS INTEGER);\"" mmsgate
+```
+Then compact the database using this command:
+```
+docker exec -it mmsgate sudo su -c "sqlite3 ~/data/mmsgate.sqlite \"VACUUM;\"" mmsgate
+```
+However, the vacuum command can change the row IDs of a SQLite table.  MMSGate depends on the row ID.  Thus, when automating the vacuum command, precede it with this command to stop MMSGate for 60 seconds:
+```
+docker exec -it mmsgate bash -c "sudo kill \$(pgrep mmsgate.py)"
+```
+To compare the database contents with the message history from VoIP.ms, and reconcile any missing messages, use this command:
+```
+docker exec -it mmsgate sudo su - -c "/home/mmsgate/script/mmsreconcile.py" mmsgate
+```
+It will look back 7 days as a default.  The --look-back option can be used to adjust the number of days.  
+
+The reconcile and delete commands can be placed in a bash script and scheduled via crontab to run nightly on the host.  The kill and vacuum commands can be weekly.  
