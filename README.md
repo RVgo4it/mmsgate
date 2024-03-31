@@ -120,7 +120,7 @@ To start or stop the container, use these commands:
 docker stop mmsgate
 docker start mmsgate
 ```
-Note: Try to avoid restarting Flexisip.  Restarting Flexisip will cause loss of current registrations and buffered messages, both kept in memory.  It will require all the clients to re-register via opening the client.  
+Note: Try to avoid restarting Flexisip.  Restarting Flexisip will cause loss of current registrations and buffered messages, both kept in memory.  It will require all the clients to re-register via opening the client.  See the Flexisip Message Queue Database section of this document for details.  
 
 Docker can consume significant disk space.  Use these commands to monitor and clean up space.
 ```
@@ -376,3 +376,43 @@ options:
 The script will display the URL needed by the client.  Optionally, it will also display the container path to QR code image file.  Send the end user the URL and/or the QR code image.
 
 From the Linphone client, select "Assistant" and "Fetch remote configuration".  Enter the URL to the XML file or scan the QR code.  
+
+## Flexisip Message Queue Database
+Normally, when a Flexisip receives a message for a Linphone client from MMSGate, it waked up the client via Push Notification and delivers it immediatelly.  However, sometimes the client is unresponsive. In this case, Flexisip buffers the message in memory until the cline is available.  
+
+If Flexisip were to be restarted, these buffered messages in memory would be lost.  To prevent this, use this procedure to create a database for the messages.
+
+From the host, use this command to install MariaDB server:
+```
+docker exec -it mmsgate sudo apt install mariadb-server
+```
+Use this command to edit the initialization script:
+```
+docker exec -it mmsgate nano init.sh
+```
+Add the following lines starting about line 6:
+```
+# Start MariaDB
+echo $(date -Ins) - Starting MariaDB
+sudo mysqld_safe &
+sleep 10
+```
+Once back at command propt, restart the mmsgate container.  Once restarted, open a MariaDB client prompt using this command:
+```
+docker exec -it mmsgate sudo mysql
+```
+Use the following command to create the database and user for Flexisip:
+```
+CREATE DATABASE flexisip_msgs;
+CREATE USER 'flexisip'@localhost IDENTIFIED BY 'password1';
+GRANT ALL PRIVILEGES ON *.* TO 'flexisip'@localhost;
+FLUSH PRIVILEGES;
+exit
+```
+Edit the flexisip.conf file, find the [module::Router] section and add the following options:
+```
+message-database-enabled=true
+message-database-backend=mysql
+message-database-connection-string=db='flexisip_msgs' user='flexisip' password='password1' host='localhost'
+```
+Restart the mmsgate container.  
