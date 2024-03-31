@@ -120,6 +120,8 @@ To start or stop the container, use these commands:
 docker stop mmsgate
 docker start mmsgate
 ```
+Note: Try to avoid restarting Flexisip.  Restarting Flexisip will cause loss of current registrations and buffered messages, both kept in memory.  It will require all the clients to re-register via opening the client.  
+
 Docker can consume significant disk space.  Use these commands to monitor and clean up space.
 ```
 df -h
