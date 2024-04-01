@@ -426,23 +426,23 @@ docker exec -it mmsgate sudo apt install sqlite3
 ```
 Then, assuming the default database location, use this command to display the table:
 ```
-docker exec -it mmsgate sudo su -c "sqlite3 -box ~/data/mmsgate.sqlite \"SELECT rowid,msgid,strftime('%Y-%m-%d %H:%M',datetime(rcvd_ts, 'unixepoch', 'localtime')) as rcvd_ts,strftime('%Y-%m-%d %H:%M',datetime(sent_ts, 'unixepoch', 'localtime')) as sent_ts,fromid,fromdom,toid,todom,substr(message,1,15) as message,direction as dir,msgstatus as msgstat,did,msgtype,trycnt FROM send_msgs;\"" mmsgate
+docker exec mmsgate sudo su -c "sqlite3 -box ~/data/mmsgate.sqlite \"SELECT rowid,msgid,strftime('%Y-%m-%d %H:%M',datetime(rcvd_ts, 'unixepoch', 'localtime')) as rcvd_ts,strftime('%Y-%m-%d %H:%M',datetime(sent_ts, 'unixepoch', 'localtime')) as sent_ts,fromid,fromdom,toid,todom,substr(message,1,15) as message,direction as dir,msgstatus as msgstat,did,msgtype,trycnt FROM send_msgs;\"" mmsgate
 ```
 The database may grow to an excessive size.  To delete messages received over 30 days ago, use this command:
 ```
-docker exec -it mmsgate sudo su -c "sqlite3 ~/data/mmsgate.sqlite \"DELETE FROM send_msgs where rcvd_ts < CAST(strftime('%s',date('now','-30 days')) AS INTEGER);\"" mmsgate
+docker exec mmsgate sudo su -c "sqlite3 ~/data/mmsgate.sqlite \"DELETE FROM send_msgs where rcvd_ts < CAST(strftime('%s',date('now','-30 days')) AS INTEGER);\"" mmsgate
 ```
 Then compact the database using this command:
 ```
-docker exec -it mmsgate sudo su -c "sqlite3 ~/data/mmsgate.sqlite \"VACUUM;\"" mmsgate
+docker exec mmsgate sudo su -c "sqlite3 ~/data/mmsgate.sqlite \"VACUUM;\"" mmsgate
 ```
 However, the vacuum command can change the row IDs of a SQLite table.  MMSGate depends on the row ID.  Thus, when automating the vacuum command, precede it with this command to stop MMSGate for 60 seconds:
 ```
-docker exec -it mmsgate bash -c "sudo kill \$(pgrep mmsgate.py)"
+docker exec mmsgate bash -c "sudo kill \$(pgrep mmsgate.py)"
 ```
 To compare the database contents with the message history from VoIP.ms, and reconcile any missing messages, use this command:
 ```
-docker exec -it mmsgate sudo su - -c "/home/mmsgate/script/mmsreconcile.py" mmsgate
+docker exec mmsgate sudo su - -c "/home/mmsgate/script/mmsreconcile.py" mmsgate
 ```
 It will look back 7 days as a default.  The --look-back option can be used to adjust the number of days.  
 
