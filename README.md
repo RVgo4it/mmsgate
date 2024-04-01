@@ -472,7 +472,7 @@ To modify the PJSIP or MMSGate log levels, the MMSGate configuration needs to be
 ```
 docker exec -it mmsgate sudo nano /etc/flexisip/mmsgate.conf
 ```
-In the [sip] section, set option siploglevel to level 5 for the highest.  Also set siplogfile to /tmp/sip.log.  
+For PJSIP logs, in the [sip] section, set option siploglevel to level 5 for the highest.  Also set siplogfile to /tmp/sip.log.  
 
 Once back at a command prompt, restart the MMSGate script using this command:
 ```
