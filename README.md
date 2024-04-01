@@ -431,8 +431,8 @@ docker exec mmsgate sudo su -c "sqlite3 -box ~/data/mmsgate.sqlite \" \
 The database may grow to an excessive size.  To delete messages received over 30 days ago, use this command:
 ```
 docker exec mmsgate sudo su -c "sqlite3 ~/data/mmsgate.sqlite \" \
-DELETE FROM send_msgs where rcvd_ts < CAST(strftime('%s',date('now','-30 days')) AS INTEGER); \
-\"" mmsgate
+  DELETE FROM send_msgs where rcvd_ts < CAST(strftime('%s',date('now','-30 days')) AS INTEGER); \
+  \"" mmsgate
 ```
 Then compact the database using this command:
 ```
