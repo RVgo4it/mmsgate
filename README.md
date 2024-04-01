@@ -193,7 +193,7 @@ docker exec -it mmsgate sudo nano /etc/flexisip/mmsgate.conf
 ```
 Add API ID and password, "[api]" section, options "apiid" and "apipw", also in section "[web]", option "webdns" name.  Add other settings as needed.
 
-Once back at the command prompt, restart the mmsgate container.
+Once back at the command prompt, restart the mmsgate container.  Move on to setup VoIP.ms.  
 
 Tasks MMSGate does not do and should be addressed:
 * MMS media is taged as expiring in one year.  However, MMSGate does not automatically remove media after that time.
@@ -223,7 +223,7 @@ Logon to VoIP.ms portal, https://voip.ms/
 	* Edit other settings as needed.
 	* Apply changes
 
-Once done, test the MMS and SMS messaging.  
+Once done, test MMS and SMS messaging.  
 
 ## Android Push Notification
 
