@@ -126,7 +126,7 @@ To start or stop the container, use these commands:
 docker stop mmsgate
 docker start mmsgate
 ```
-Note: Try to avoid restarting Flexisip.  Restarting Flexisip will cause loss of current registrations and buffered messages, both kept in memory.  It will require all the clients to re-register via opening the client.  See the Flexisip Message Queue Database section of this document for details.  
+Note: Try to avoid restarting Flexisip.  Restarting Flexisip will cause loss of current registrations and buffered messages, both kept in memory.  It may require all the clients to re-register via opening the client.  See the Flexisip Message Queue Database section of this document for details.  
 
 Docker can consume significant disk space.  Use these commands to monitor and clean up space.
 ```
@@ -157,8 +157,9 @@ Once Flexisip working as expected, move on to setup MMSGate.
 		* Find the "[module::GarbageIn]" section.
 		* Set "enabled=true"
 		* Set filter to "filter= ! ( from.uri.user contains '123456_' || to.uri.user contains '123456_' )" replacing 123456 with your account prefix.  
-	* To confirm the Linphone client is passing it's push notification settings in its contact URI, use a command like the following and look for "pn" parameters:
+	* To confirm the Linphone client is passing it's push notification settings in its contact URI, use commands like the following to confirm registration and look for "pn" parameters:
 ```
+docker exec -it mmsgate sudo /opt/belledonne-communications/bin/flexisip_cli.py REGISTRAR_DUMP
 docker exec -it mmsgate sudo /opt/belledonne-communications/bin/flexisip_cli.py REGISTRAR_GET sip:123456_bob@deluth2.voip.ms
 ```
 ## MMSGate configuration
@@ -192,7 +193,7 @@ docker exec -it mmsgate sudo nano /etc/flexisip/mmsgate.conf
 ```
 Add API ID and password, "[api]" section, options "apiid" and "apipw", also in section "[web]", option "webdns" name.  Add other settings as needed.
 
-Once back at the command prompt, restart the mmsgate container.
+Once back at the command prompt, restart the mmsgate container.  Move on to setup VoIP.ms.  
 
 Tasks MMSGate does not do and should be addressed:
 * MMS media is taged as expiring in one year.  However, MMSGate does not automatically remove media after that time.
@@ -222,7 +223,7 @@ Logon to VoIP.ms portal, https://voip.ms/
 	* Edit other settings as needed.
 	* Apply changes
 
-Once done, test the MMS and SMS messaging.  
+Once done, test MMS and SMS messaging.  
 
 ## Android Push Notification
 
@@ -274,6 +275,7 @@ Need a location for the software.  Create it and switch to it.
 ```
 mkdir ~/linphone-android-app
 cd ~/linphone-android-app
+mkdir ./empty
 ```
 Download source for the Linphone SDK.  
 ```
@@ -293,7 +295,7 @@ ls -l linphone-sdk/docker-files/*andr*
 ```
 Examine docker files listed and pick newest that is not for testing, for example bc-dev-android-r25b.  Modify the next command to reflect the selected docker file and run:
 ```
-docker build -f linphone-sdk/docker-files/bc-dev-android-r25b -t linphone-android .
+docker build -f linphone-sdk/docker-files/bc-dev-android-r25b -t linphone-android ./empty
 ```
 Next, create a container and open a command prompt inside the container.
 ```
@@ -396,7 +398,7 @@ Restart the mmsgate container.  Once restarted, open a MariaDB client prompt usi
 ```
 docker exec -it mmsgate sudo mysql
 ```
-Use the following command to create the database and user for Flexisip messages:
+Use the following commands to create the database and user for Flexisip messages:
 ```
 CREATE DATABASE flexisip_msgs;
 CREATE USER 'flexisip'@localhost IDENTIFIED BY 'password1';
@@ -421,11 +423,17 @@ docker exec -it mmsgate sudo apt install sqlite3
 ```
 Then, assuming the default database location, use this command to display the table:
 ```
-docker exec mmsgate sudo su -c "sqlite3 -box ~/data/mmsgate.sqlite \"SELECT rowid,msgid,strftime('%Y-%m-%d %H:%M',datetime(rcvd_ts, 'unixepoch', 'localtime')) as rcvd_ts,strftime('%Y-%m-%d %H:%M',datetime(sent_ts, 'unixepoch', 'localtime')) as sent_ts,fromid,fromdom,toid,todom,substr(message,1,15) as message,direction as dir,msgstatus as msgstat,did,msgtype,trycnt FROM send_msgs;\"" mmsgate
+docker exec mmsgate sudo su -c "sqlite3 -box ~/data/mmsgate.sqlite \" \
+  SELECT rowid,msgid,strftime('%Y-%m-%d %H:%M',datetime(rcvd_ts, 'unixepoch', 'localtime')) as rcvd_ts, \
+    strftime('%Y-%m-%d %H:%M',datetime(sent_ts, 'unixepoch', 'localtime')) as sent_ts,fromid,fromdom,toid, \
+    todom,substr(message,1,15) as message,direction as dir,msgstatus as msgstat,did,msgtype,trycnt FROM send_msgs; \
+  \"" mmsgate
 ```
 The database may grow to an excessive size.  To delete messages received over 30 days ago, use this command:
 ```
-docker exec mmsgate sudo su -c "sqlite3 ~/data/mmsgate.sqlite \"DELETE FROM send_msgs where rcvd_ts < CAST(strftime('%s',date('now','-30 days')) AS INTEGER);\"" mmsgate
+docker exec mmsgate sudo su -c "sqlite3 ~/data/mmsgate.sqlite \" \
+  DELETE FROM send_msgs WHERE rcvd_ts < CAST(strftime('%s',date('now','-30 days')) AS INTEGER); \
+  \"" mmsgate
 ```
 Then compact the database using this command:
 ```
@@ -442,3 +450,43 @@ docker exec mmsgate sudo su - -c "/home/mmsgate/script/mmsreconcile.py" mmsgate
 It will look back 7 days as a default.  The --look-back option can be used to adjust the number of days.  
 
 The reconcile and delete commands can be placed in a bash script and scheduled via crontab to run nightly on the host.  The kill and vacuum commands can be weekly.  
+## Logs
+To see more detailed logs for Flexisip, you can increase the details without having to restart Flexisip.  
+
+From the host’s command prompt, confirm the current log level with this command:
+```
+docker exec -it mmsgate sudo /opt/belledonne-communications/bin/flexisip_cli.py CONFIG_GET global/log-level
+```
+Use the following command to increase the log level:
+```
+docker exec -it mmsgate sudo /opt/belledonne-communications/bin/flexisip_cli.py CONFIG_SET global/log-level debug
+```
+Then view the log via this command:
+```
+docker exec -it mmsgate tail -f /var/opt/belledonne-communications/log/flexisip/flexisip-proxy.log
+```
+Use the following command to reset the log level back to default:
+```
+docker exec -it mmsgate sudo /opt/belledonne-communications/bin/flexisip_cli.py CONFIG_SET global/log-level error
+```
+To modify the PJSIP or MMSGate log levels, the MMSGate configuration needs to be modified.  Use this command:
+```
+docker exec -it mmsgate sudo nano /etc/flexisip/mmsgate.conf
+```
+For PJSIP logs, in the [sip] section, set option siploglevel to level 5 for the highest.  Also set siplogfile to /tmp/sip.log.  
+
+Once back at a command prompt, restart the MMSGate script using this command:
+```
+docker exec -it mmsgate bash -c "sudo kill \$(pgrep mmsgate.py)"
+```
+Wait 60 seconds.  To view the log as it is appended to, use this command:
+```
+docker exec -it mmsgate tail -f /tmp/sip.log
+```
+Note: PJSIP does not flush the log buffers very often.  So, appended log entries will appear in chunks.  
+
+To modify the MMSGate log level details, again edit the mmsgate.conf file.  In the [mmsgate] section, set option logger to DEBUG.  Also set loggerfile to /tmp/mmsgate.log.  Again, restart MMSGate and wait 60 seconds.  Then use this command to view the log file:
+```
+docker exec -it mmsgate tail -f /tmp/mmsgate.log
+```
+Once done, return the settings in the MMSGate configuration file to the original values and restart the MMSGate script.  
