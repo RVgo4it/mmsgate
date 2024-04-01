@@ -275,6 +275,7 @@ Need a location for the software.  Create it and switch to it.
 ```
 mkdir ~/linphone-android-app
 cd ~/linphone-android-app
+mkdir ./empty
 ```
 Download source for the Linphone SDK.  
 ```
@@ -294,7 +295,7 @@ ls -l linphone-sdk/docker-files/*andr*
 ```
 Examine docker files listed and pick newest that is not for testing, for example bc-dev-android-r25b.  Modify the next command to reflect the selected docker file and run:
 ```
-docker build -f linphone-sdk/docker-files/bc-dev-android-r25b -t linphone-android .
+docker build -f linphone-sdk/docker-files/bc-dev-android-r25b -t linphone-android ./empty
 ```
 Next, create a container and open a command prompt inside the container.
 ```
