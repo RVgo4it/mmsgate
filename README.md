@@ -386,18 +386,7 @@ From the host, use this command to install MariaDB server:
 ```
 docker exec -it mmsgate sudo apt install mariadb-server
 ```
-Use this command to edit the initialization script:
-```
-docker exec -it mmsgate nano init.sh
-```
-Add the following lines starting about line 6:
-```
-# Start MariaDB
-echo $(date -Ins) - Starting MariaDB
-sudo mysqld_safe &
-sleep 10
-```
-Once back at command prompt, restart the mmsgate container.  Once restarted, open a MariaDB client prompt using this command:
+Restart the mmsgate container.  Once restarted, open a MariaDB client prompt using this command:
 ```
 docker exec -it mmsgate sudo mysql
 ```
