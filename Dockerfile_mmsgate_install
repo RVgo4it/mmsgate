@@ -39,6 +39,11 @@ RUN sudo /home/mmsgate/script/mmsgate.py --default-config | sudo tee /etc/flexis
 COPY --chown=bc mmsgate/init.sh .
 RUN	chmod +x init.sh
 
+# TZ will match the host
+volumes:
+- /etc/timezone:/etc/timezone:ro
+- /etc/localtime:/etc/localtime:ro
+
 # Startup config
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
 CMD ["/home/bc/init.sh"]
