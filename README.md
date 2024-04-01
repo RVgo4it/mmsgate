@@ -80,9 +80,15 @@ docker image ls
 ```
 Images are built in layers.  The MMSGate image may show a size of about 400Mb, but that is actually a total including all the lower layers.  
 
-We can now create a container to run the software in the images.  Keep in mind that Docker containers are transitory.  Thus, we need to create a container with the configuration and data stored in a persistent volume using this command:
+We can now create a container to run the software in the images.  We'll mount timezone configurations to the host so they will match. 
+Keep in mind that Docker containers are transitory.  Thus, we need to put the configuration and data stored in a persistent volume. 
+ We'll also directly use the host's network and call the container mmsgate by using this command:
 ```
-docker run --name mmsgate -d --network host -v datavol:/home/mmsgate/data -v confvol:/etc/flexisip -v mmsmediavol:/home/mmsgate/mmsmedia mmsgate 
+docker run --name mmsgate -d --network host \
+  -v /etc/timezone:/etc/timezone -v /etc/localtime:/etc/localtime \
+  -v datavol:/home/mmsgate/data \
+  -v confvol:/etc/flexisip \
+  -v mmsmediavol:/home/mmsgate/mmsmedia mmsgate
 ```
 The host's backup system should be configured to backup the volume data as part of its normal activity. Make sure it includes this path: /var/lib/docker/volumes.  To see a list of volumes, use this command:
 ```

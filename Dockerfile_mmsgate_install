@@ -39,9 +39,6 @@ RUN sudo /home/mmsgate/script/mmsgate.py --default-config | sudo tee /etc/flexis
 COPY --chown=bc mmsgate/init.sh .
 RUN	chmod +x init.sh
 
-# TZ will match the host
-VOLUME	/home/mmsgate/mmsmedia /home/mmsgate/data /etc/flexisip 
-
 # Startup config
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
 CMD ["/home/bc/init.sh"]
