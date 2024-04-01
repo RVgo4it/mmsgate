@@ -397,7 +397,7 @@ Restart the mmsgate container.  Once restarted, open a MariaDB client prompt usi
 ```
 docker exec -it mmsgate sudo mysql
 ```
-Use the following command to create the database and user for Flexisip messages:
+Use the following commands to create the database and user for Flexisip messages:
 ```
 CREATE DATABASE flexisip_msgs;
 CREATE USER 'flexisip'@localhost IDENTIFIED BY 'password1';
