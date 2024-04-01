@@ -25,6 +25,7 @@ RUN mkdir ~/script && \
 # Copy over the scripts
 COPY --chown=mmsgate mmsgate/mmsgate.py script
 COPY --chown=mmsgate mmsgate/makexmlconf.py script
+COPY --chown=mmsgate mmsgate/mmsreconcile.py script
 RUN	chmod +x script/*
 
 # Default user for the container
