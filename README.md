@@ -51,6 +51,9 @@ logoff and back in again or use this command:
 ```
 su -  $USER
 ```
+## Build Docker Images
+Docker Images hold the software needed to run the MMSgate system.
+
 Create a location for the software and switch to it using these commands:
 ```
 mkdir ~/mmsgate-system
@@ -106,8 +109,20 @@ Status should show "up".  If so, tell Docker to restart the container if it stop
 ```
 docker update --restart unless-stopped mmsgate
 ```
-Configure Flexisip as a push gateway.  Bind the interface to the local IP and use the host's DNS name.  
-ref: https://wiki.linphone.org/xwiki/wiki/public/view/Flexisip/HOWTOs/Push%20Gateway/
+Docker can consume significant disk space.  Use these commands to monitor and clean up space.
+```
+df -h
+docker system prune
+```
+Once the builds are done, you can delete the downloaded files.
+```
+cd ~
+rm -rf ~/mmsgate-system
+```
+## Flexisip Configuration
+Configure Flexisip as a push gateway.  
+
+Bind the interface to the local IP and use the host's DNS name.  For details on allthe other required settings, follow this guide: https://wiki.linphone.org/xwiki/wiki/public/view/Flexisip/HOWTOs/Push%20Gateway/
 
 To edit the Flexisip configuration, use this command:
 ```
@@ -128,11 +143,6 @@ docker start mmsgate
 ```
 Note: Try to avoid restarting Flexisip.  Restarting Flexisip will cause loss of current registrations and buffered messages, both kept in memory.  It may require all the clients to re-register via opening the client.  See the Flexisip Message Queue Database section of this document for details.  
 
-Docker can consume significant disk space.  Use these commands to monitor and clean up space.
-```
-df -h
-docker system prune
-```
 To copy files into or out of the container, use commands like these:
 ```
 docker cp mmsgate:/etc/flexisip/flexisip.conf /tmp/flexisip.conf.old
@@ -140,11 +150,6 @@ docker cp ~/Downloads/mmsgate-abcde-f0123456789a.json mmsgate:/etc/flexisip
 ```
 Test voice calls and SMS messaging from your Linphone clients.  MMS messaging is not operational at this point.  SMS messaging should work, but only the sub account designated in the DID configuration at VoIP.ms will receive a copy of an incoming SMS message.  
 
-Once the builds are done, you can delete the downloaded files.
-```
-cd ~
-rm -rf ~/mmsgate-system
-```
 Once Flexisip working as expected, move on to setup MMSGate.
 
 * Tips:
