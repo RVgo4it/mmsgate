@@ -431,7 +431,7 @@ docker exec mmsgate sudo su -c "sqlite3 -box ~/data/mmsgate.sqlite \" \
 The database may grow to an excessive size.  To delete messages received over 30 days ago, use this command:
 ```
 docker exec mmsgate sudo su -c "sqlite3 ~/data/mmsgate.sqlite \" \
-  DELETE FROM send_msgs where rcvd_ts < CAST(strftime('%s',date('now','-30 days')) AS INTEGER); \
+  DELETE FROM send_msgs WHERE rcvd_ts < CAST(strftime('%s',date('now','-30 days')) AS INTEGER); \
   \"" mmsgate
 ```
 Then compact the database using this command:
@@ -449,3 +449,43 @@ docker exec mmsgate sudo su - -c "/home/mmsgate/script/mmsreconcile.py" mmsgate
 It will look back 7 days as a default.  The --look-back option can be used to adjust the number of days.  
 
 The reconcile and delete commands can be placed in a bash script and scheduled via crontab to run nightly on the host.  The kill and vacuum commands can be weekly.  
+## Logs
+To see more detailed logs for Flexisip, you can increase the details without having to restart Flexisip.  
+
+From the host’s command prompt, confirm the current log level with this command:
+```
+docker exec -it mmsgate sudo /opt/belledonne-communications/bin/flexisip_cli.py CONFIG_GET global/log-level
+```
+Use the following command to increase the log level:
+```
+docker exec -it mmsgate sudo /opt/belledonne-communications/bin/flexisip_cli.py CONFIG_SET global/log-level debug
+```
+Then view the log via this command:
+```
+docker exec -it mmsgate tail -f /var/opt/belledonne-communications/log/flexisip/flexisip-proxy.log
+```
+Use the following command to reset the log level back to default:
+```
+docker exec -it mmsgate sudo /opt/belledonne-communications/bin/flexisip_cli.py CONFIG_SET global/log-level error
+```
+To modify the PJSIP or MMSGate log levels, the MMSGate configuration needs to be modified.  Use this command:
+```
+docker exec -it mmsgate sudo nano /etc/flexisip/mmsgate.conf
+```
+In the [sip] section, set option siploglevel to level 5 for the highest.  Also set siplogfile to /tmp/sip.log.  
+
+Once back at a command prompt, restart the MMSGate script using this command:
+```
+docker exec -it mmsgate bash -c "sudo kill \$(pgrep mmsgate.py)"
+```
+Wait 60 seconds.  To view the log as it is appended to, use this command:
+```
+docker exec -it mmsgate tail -f /tmp/sip.log
+```
+Note: PJSIP does not flush the log buffers very often.  So, appended log entries will appear in chunks.  
+
+To modify the MMSGate log level details, again edit the mmsgate.conf file.  In the [mmsgate] section, set option logger to DEBUG.  Also set loggerfile to /tmp/mmsgate.log.  Again, restart MMSGate and wait 60 seconds.  Then use this command to view the log file:
+```
+docker exec -it mmsgate tail -f /tmp/mmsgate.log
+```
+Once done, return the settings in the MMSGate configuration file to the original values and restart the MMSGate script.  
