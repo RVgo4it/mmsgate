@@ -3,11 +3,18 @@
 echo
 echo $(date -Ins) - Init started!
 
+# maybe mariadb?
+if [ -e /usr/bin/mysqld_safe ] ; then
+  echo $(date -Ins) - Starting MariaDB
+  sudo mysqld_safe &
+  sleep 10
+fi
+
 # keep refreshing permissions for mmsgate to talk to flexisip
 { while [ true ] ; do
   sleep 60
-  sudo chmod 0775 /tmp/flexisip-proxy-*
-  sudo chown root:mmsgate /tmp/flexisip-proxy-*
+  sudo chmod 0775 /tmp/flexisip-proxy-* 2>/dev/null
+  sudo chown root:mmsgate /tmp/flexisip-proxy-* 2>/dev/null
 done; } &
 
 if [ "$1" == "--mmsgatedebug" ] ; then MMSGATEDEBUG=--mmsgate-logger=DEBUG; fi
