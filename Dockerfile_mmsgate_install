@@ -40,9 +40,7 @@ COPY --chown=bc mmsgate/init.sh .
 RUN	chmod +x init.sh
 
 # TZ will match the host
-volumes:
-- /etc/timezone:/etc/timezone:ro
-- /etc/localtime:/etc/localtime:ro
+VOLUME	/etc/timezone:/etc/timezone:ro /etc/localtime:/etc/localtime:ro
 
 # Startup config
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
