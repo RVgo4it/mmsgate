@@ -157,8 +157,9 @@ Once Flexisip working as expected, move on to setup MMSGate.
 		* Find the "[module::GarbageIn]" section.
 		* Set "enabled=true"
 		* Set filter to "filter= ! ( from.uri.user contains '123456_' || to.uri.user contains '123456_' )" replacing 123456 with your account prefix.  
-	* To confirm the Linphone client is passing it's push notification settings in its contact URI, use a command like the following and look for "pn" parameters:
+	* To confirm the Linphone client is passing it's push notification settings in its contact URI, use commands like the following to confirm registration and look for "pn" parameters:
 ```
+docker exec -it mmsgate sudo /opt/belledonne-communications/bin/flexisip_cli.py REGISTRAR_DUMP
 docker exec -it mmsgate sudo /opt/belledonne-communications/bin/flexisip_cli.py REGISTRAR_GET sip:123456_bob@deluth2.voip.ms
 ```
 ## MMSGate configuration
@@ -421,11 +422,17 @@ docker exec -it mmsgate sudo apt install sqlite3
 ```
 Then, assuming the default database location, use this command to display the table:
 ```
-docker exec mmsgate sudo su -c "sqlite3 -box ~/data/mmsgate.sqlite \"SELECT rowid,msgid,strftime('%Y-%m-%d %H:%M',datetime(rcvd_ts, 'unixepoch', 'localtime')) as rcvd_ts,strftime('%Y-%m-%d %H:%M',datetime(sent_ts, 'unixepoch', 'localtime')) as sent_ts,fromid,fromdom,toid,todom,substr(message,1,15) as message,direction as dir,msgstatus as msgstat,did,msgtype,trycnt FROM send_msgs;\"" mmsgate
+docker exec mmsgate sudo su -c "sqlite3 -box ~/data/mmsgate.sqlite \" \
+SELECT rowid,msgid,strftime('%Y-%m-%d %H:%M',datetime(rcvd_ts, 'unixepoch', 'localtime')) as rcvd_ts, \
+  strftime('%Y-%m-%d %H:%M',datetime(sent_ts, 'unixepoch', 'localtime')) as sent_ts,fromid,fromdom,toid, \
+  todom,substr(message,1,15) as message,direction as dir,msgstatus as msgstat,did,msgtype,trycnt FROM send_msgs; \
+  \"" mmsgate
 ```
 The database may grow to an excessive size.  To delete messages received over 30 days ago, use this command:
 ```
-docker exec mmsgate sudo su -c "sqlite3 ~/data/mmsgate.sqlite \"DELETE FROM send_msgs where rcvd_ts < CAST(strftime('%s',date('now','-30 days')) AS INTEGER);\"" mmsgate
+docker exec mmsgate sudo su -c "sqlite3 ~/data/mmsgate.sqlite \" \
+DELETE FROM send_msgs where rcvd_ts < CAST(strftime('%s',date('now','-30 days')) AS INTEGER); \
+\"" mmsgate
 ```
 Then compact the database using this command:
 ```
