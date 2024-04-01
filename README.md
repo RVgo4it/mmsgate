@@ -423,9 +423,9 @@ docker exec -it mmsgate sudo apt install sqlite3
 Then, assuming the default database location, use this command to display the table:
 ```
 docker exec mmsgate sudo su -c "sqlite3 -box ~/data/mmsgate.sqlite \" \
-SELECT rowid,msgid,strftime('%Y-%m-%d %H:%M',datetime(rcvd_ts, 'unixepoch', 'localtime')) as rcvd_ts, \
-  strftime('%Y-%m-%d %H:%M',datetime(sent_ts, 'unixepoch', 'localtime')) as sent_ts,fromid,fromdom,toid, \
-  todom,substr(message,1,15) as message,direction as dir,msgstatus as msgstat,did,msgtype,trycnt FROM send_msgs; \
+  SELECT rowid,msgid,strftime('%Y-%m-%d %H:%M',datetime(rcvd_ts, 'unixepoch', 'localtime')) as rcvd_ts, \
+    strftime('%Y-%m-%d %H:%M',datetime(sent_ts, 'unixepoch', 'localtime')) as sent_ts,fromid,fromdom,toid, \
+    todom,substr(message,1,15) as message,direction as dir,msgstatus as msgstat,did,msgtype,trycnt FROM send_msgs; \
   \"" mmsgate
 ```
 The database may grow to an excessive size.  To delete messages received over 30 days ago, use this command:
