@@ -60,7 +60,7 @@ print("webpath",webpath)
 xmltemplate = '''<config xmlns="http://www.linphone.org/xsds/lpconfig.xsd" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.linphone.org/xsds/lpconfig.xsd lpconfig.xsd">
 <section name="sip">
 <entry name="default_proxy" overwrite="true">0</entry>
-<entry name="media_encryption" overwrite="true">srtp</entry>
+<entry name="media_encryption" overwrite="true">{menc}</entry>
 </section>
 <section name="net">
 <entry name="nat_policy_ref" overwrite="true">~OuCpkaPzCwyvMo</entry>
@@ -90,7 +90,7 @@ xmltemplate = '''<config xmlns="http://www.linphone.org/xsds/lpconfig.xsd" xmlns
 <entry name="reg_proxy" overwrite="true">&lt;{proto}:{proxy};transport={tran}&gt;</entry>
 <entry name="reg_route" overwrite="true">&lt;{proto}:{proxy};transport={tran}&gt;</entry>
 <entry name="reg_identity" overwrite="true">"{user}" &lt;{proto}:{user}@{dom}&gt;</entry>
-<entry name="realm" overwrite="true">{proxy}</entry>
+<entry name="realm" overwrite="true">{dom}</entry>
 <entry name="quality_reporting_collector" overwrite="true">{proto}:voip-metrics@{proxy};transport={tran}</entry>
 <entry name="quality_reporting_enabled" overwrite="true">1</entry>
 <entry name="quality_reporting_interval" overwrite="true">180</entry>
@@ -151,9 +151,11 @@ for acct in rslta["accounts"]:
     if acct["sip_traffic"] == 0:
       proto = "sip"
       tran = "udp"
+      menc = ""
     else:
       proto = "sips"
       tran = "tls"
+      menc = "srtp"
     dom = dids[acct["callerid_number"]]
     user = acct["account"]
     pw = acct["password"]
@@ -163,7 +165,7 @@ for acct in rslta["accounts"]:
     else:
       m.update((user+":"+dom+":"+pw).encode('utf-8'))
     ha1 = m.hexdigest()
-    xml = xmltemplate.format(proxy = proxy, user = user, dom = dom, ha1 = ha1, tran = tran, proto = proto)
+    xml = xmltemplate.format(proxy = proxy, user = user, dom = dom, ha1 = ha1, tran = tran, proto = proto, menc = menc)
     xmlfile = destdir+user+".xml"
     print("Creating XML file at:",xmlfile)
     with open(xmlfile, "w") as f:
