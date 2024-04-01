@@ -1,4 +1,5 @@
 #!/bin/bash
+# This is the initial script called by dumb-init
 
 echo
 echo $(date -Ins) - Init started!
@@ -17,6 +18,7 @@ fi
   sudo chown root:mmsgate /tmp/flexisip-proxy-* 2>/dev/null
 done; } &
 
+# start mmsgate script
 if [ "$1" == "--mmsgatedebug" ] ; then MMSGATEDEBUG=--mmsgate-logger=DEBUG; fi
 { while [ true ] ; do
   echo $(date -Ins) - "Starting MMSGate"
@@ -25,7 +27,7 @@ if [ "$1" == "--mmsgatedebug" ] ; then MMSGATEDEBUG=--mmsgate-logger=DEBUG; fi
   sleep 60
 done; } &
 
-# the primary process
+# start the primary process, flexisip
 if [ "$1" == "--flexisipdebug" ] ; then FLEXISIPDEBUG=-d; fi
 while [ true ] ; do
   echo $(date -Ins) - "Starting Flexisip"
