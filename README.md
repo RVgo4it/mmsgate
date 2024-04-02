@@ -1,7 +1,7 @@
 # MMSGate
 MMSGate is a MMS message gateway between VoIP.ms and Linphone clients.
 
-Linphone is an open-source soft-phone.  It makes VoiP SIP calls and can send/receive SMS/MMS messages over the SIP protocol.  For voice calls, it can also use push notifications to ensure no calls are missed.  
+Linphone is an open-source soft-phone.  It makes VoiP SIP calls and can send/receive SMS/MMS messages over the SIP protocol.  It can also use push notifications to ensure no calls are missed and SMS/MMS are delivered quickly.  
 
 VoIP.ms provides voice and SMS over SIP protocol.  While MMS messages are possible, the service is provided over a customized API and web hook.  MMSGate provides the link between VoIP.ms's MMS service and Linphone clients.
 
@@ -84,8 +84,7 @@ docker image ls
 Images are built in layers.  The MMSGate image may show a size of about 400Mb, but that is actually a total including all the lower layers.  
 
 We can now create a container to run the software in the images.  We'll mount timezone configurations to the host so they will match. 
-Keep in mind that Docker containers are transitory.  Thus, we need to put the configuration and data stored in a persistent volume. 
- We'll also directly use the host's network and call the container mmsgate by using this command:
+Keep in mind that Docker containers are transitory.  Thus, we need to put the configuration and data stored in a persistent volume.  We'll also directly use the host's network and call the container mmsgate by using this command:
 ```
 docker run --name mmsgate -d --network host \
   -v /etc/timezone:/etc/timezone -v /etc/localtime:/etc/localtime \
@@ -122,13 +121,15 @@ rm -rf ~/mmsgate-system
 ## Flexisip Configuration
 Configure Flexisip as a push gateway.  
 
-Bind the interface to the local IP and use the host's DNS name.  For details on allthe other required settings, follow this guide: https://wiki.linphone.org/xwiki/wiki/public/view/Flexisip/HOWTOs/Push%20Gateway/
+Bind the interface to the local IP and use the host's DNS name.  For details on all the other required settings, follow this guide: https://wiki.linphone.org/xwiki/wiki/public/view/Flexisip/HOWTOs/Push%20Gateway/
 
 To edit the Flexisip configuration, use this command:
 ```
 docker exec -it mmsgate sudo nano /etc/flexisip/flexisip.conf
 ```
-The transport line may look something like this:
+Use Ctrl-S to save and Ctrl-X to exit.  You can search the file using Ctrl-W.  
+
+The "transports" line may look something like this:
 ```
 transports=sips:flexisip.yourdomain.com;maddr=123.45.67.89
 ```
@@ -136,6 +137,8 @@ To view the Flexisip log file as it is appended to, use this command:
 ```
 docker exec -it mmsgate tail -f /var/opt/belledonne-communications/log/flexisip/flexisip-proxy.log
 ```
+See the Logs section of this document for more details.  
+
 To start or stop the container, use these commands:
 ```
 docker stop mmsgate
@@ -176,11 +179,11 @@ From host server, edit the Flexisip config file:
 ```
 docker exec -it mmsgate sudo nano /etc/flexisip/flexisip.conf
 ```
-We need Flexisip to be able to talk to MMSGate via local loopback IP.  In the [global] section, find option transports and add the following to the end, separated by a space from the existing transports:
+We need Flexisip to be able to talk to MMSGate via local loopback IP.  In the "[global]" section, find option "transports" and add the following to the end, separated by a space from the existing transports:
 ```
 sips:localhost;maddr=127.0.0.1;tls-verify-outgoing=0 sip:localhost;maddr=127.0.0.1
 ```
-Also, need to define a forward rule for sending MMS messages over to MMSGate.  In the [module::Forward] section, enable it and add option as follows:
+Also, need to define a forward rule for sending MMS messages over to MMSGate.  In the "[module::Forward]" section, enable it and add the following option:
 ```
 routes-config-path=/etc/flexisip/forward.conf
 ```
@@ -213,7 +216,7 @@ Logon to VoIP.ms portal, https://voip.ms/
 * Edit each DID that will be used with MMSGate.  
 	* Enable "Message Service (SMS/MMS)"
 	* Disable "Link the SMS received to this DID to a SIP Account"
-	* Enable "SMS/MMS Webhook URL (3CX)" and site it to something like these, depending on your domain, port and protocol:
+	* Enable "SMS/MMS Webhook URL (3CX)" and set it to something like one of these, depending on your domain, port and protocol:
 		* http://flexisip.yourDomian.com:38443/mmsgate
 		* https://flexisip.yourDomian.com:38443/mmsgate
 	* Enable "URL Callback and Webhook URL Retrying"
@@ -238,7 +241,7 @@ https://firebase.google.com/
 
 Sign in and go to the Console.
 
-Create a project and call it mmsgate.
+Create a project and call it "mmsgate".
 
 Once at the project overview, add an Android app by clicking the Android icon.
 
@@ -248,7 +251,7 @@ For the app's Package name, use your domain in reverse and end with linphone.  F
 ```
 	com.yourdomain.linphone
 ```
-After the app is registered, download the google-services.json file and keep it in a safe place.  It needs to be added to the Android app source project.
+After the app is registered, download the "google-services.json" file and keep it in a safe place.  It needs to be added to the Android app source project.
 
 After returning to the project settings, select the Cloud Messaging tab.
 
@@ -256,7 +259,7 @@ Under Firebase Cloud Messaging API (V1), select Manage Service Accounts and the 
 
 There should be a service account listed, to its right, there is an action menu.  Select Manage Keys.
 
-Click ADD KEY and select Create new key.  Key type is JSON and click Create.  Download the file named similar to "mmsgate-abcde-f0123456789a.json" and keep it in a safe place.  It needs to be added to the Flexisip server.
+Click ADD KEY and select Create new key.  Key type is JSON and click Create.  Download the file named similar to "mmsgate-abcde-f0123456789a.json" and keep it in a safe place.  It needs to be added to the Flexisip server configuration.
 
 From an Ubuntu Desktop 22.04 LTS system (recommended), or most any Intel/AMD x86_64/amd64 system with Docker, open a command prompt.  The compilation process for an Android application will need significant memory, 8GB or more of memory is recommended.  
 
@@ -292,13 +295,13 @@ git clone https://gitlab.linphone.org/BC/public/linphone-android --recursive -b 
 ```
 The "-b" parameter in the last two commands can be altered to build different versions.  
 
-Copy the google-services.json files downloaded from firebase.google.com to ~/linphone-android-app/linphone-android/app/google-services.json, replacing the one there.
+Copy the "google-services.json" files downloaded from firebase.google.com to "~/linphone-android-app/linphone-android/app/google-services.json", replacing the one there.
 
 Use this command to see available docker files for Android builds:
 ```
 ls -l linphone-sdk/docker-files/*andr*
 ```
-Examine docker files listed and pick newest that is not for testing, for example bc-dev-android-r25b.  Modify the next command to reflect the selected docker file and run:
+Examine docker files listed and pick newest that is not for testing, for example "bc-dev-android-r25b".  Modify the next command to reflect the selected docker file and run:
 ```
 docker build -f linphone-sdk/docker-files/bc-dev-android-r25b -t linphone-android ./empty
 ```
@@ -328,7 +331,7 @@ It will look something like this:
 	def packageName = "com.yourdomain.linphone"
 ```
 
-Once back at command prompt, use the following command to edit keystore.properties, enter a desired password in two places and the alias as linphone-alias.
+Once back at command prompt, use the following command to edit "keystore.properties", enter a desired password in two places and the alias as "linphone-alias".
 ```
 nano keystore.properties
 ```
@@ -344,7 +347,7 @@ Once done, exit the container.
 ```
 exit
 ```
-Assuming no errors, there is now a .apk file in ~/linphone-android-app/linphone-android/app/build/outputs/apk/release.  Transfer the .apk file to your Android phone and install it.
+Assuming no errors, there is now a .apk file in "~/linphone-android-app/linphone-android/app/build/outputs/apk/release".  Transfer the .apk file to your Android phone and install it.
 
 Configure Flexisip as per:
 https://wiki.linphone.org/xwiki/wiki/public/view/Flexisip/Configuration/Push%20notifications/
@@ -388,14 +391,14 @@ options:
 ```
 The script will display the URL needed by the client.  Optionally, it will also display the container path to QR code image file.  Send the end user the URL and/or the QR code image.
 
-From the Linphone client, select "Assistant" and "Fetch remote configuration".  Enter the URL to the XML file or scan the QR code.  
+From the Linphone client, select "Assistant" and "Fetch remote configuration".  Enter the URL to the XML file or scan the QR code.  Then tap "Fetch and apply" and configuration is complete.
 
 ## Flexisip Message Queue Database
 Normally, when a Flexisip receives a message for a Linphone client from MMSGate, it wakes up the client via Push Notification and delivers it immediately.  However, sometimes the client is unresponsive. In this case, Flexisip buffers the message in memory until the client is available.  
 
 If Flexisip were to be restarted, these buffered messages in memory would be lost.  To prevent this, use this procedure to create a database for the messages.
 
-From the host, use this command to install MariaDB server:
+From the host, use this command to install MariaDB server inside the container:
 ```
 docker exec -it mmsgate sudo apt install mariadb-server
 ```
@@ -411,7 +414,7 @@ GRANT ALL PRIVILEGES ON *.* TO 'flexisip'@localhost;
 FLUSH PRIVILEGES;
 exit
 ```
-Edit the flexisip.conf file, find the [module::Router] section and edit/add the following options:
+Edit the flexisip.conf file, find the "[module::Router]" section and edit/add the following options:
 ```
 message-database-enabled=true
 message-database-backend=mysql
@@ -455,6 +458,7 @@ docker exec mmsgate sudo su - -c "/home/mmsgate/script/mmsreconcile.py" mmsgate
 It will look back 7 days as a default.  The --look-back option can be used to adjust the number of days.  
 
 The reconcile and delete commands can be placed in a bash script and scheduled via crontab to run nightly on the host.  The kill and vacuum commands can be weekly.  
+
 ## Logs
 To see more detailed logs for Flexisip, you can increase the details without having to restart Flexisip.  
 
@@ -478,7 +482,7 @@ To modify the PJSIP or MMSGate log levels, the MMSGate configuration needs to be
 ```
 docker exec -it mmsgate sudo nano /etc/flexisip/mmsgate.conf
 ```
-For PJSIP logs, in the [sip] section, set option siploglevel to level 5 for the highest.  Also set siplogfile to /tmp/sip.log.  
+For PJSIP logs, in the "[sip]" section, set option "siploglevel" to level "5" for the highest.  Also set "siplogfile" to "/tmp/sip.log".  
 
 Once back at a command prompt, restart the MMSGate script using this command:
 ```
@@ -490,8 +494,8 @@ docker exec -it mmsgate tail -f /tmp/sip.log
 ```
 Note: PJSIP does not flush the log buffers very often.  So, appended log entries will appear in chunks.  
 
-To modify the MMSGate log level details, again edit the mmsgate.conf file.  In the [mmsgate] section, set option logger to DEBUG.  Also set loggerfile to /tmp/mmsgate.log.  Again, restart MMSGate and wait 60 seconds.  Then use this command to view the log file:
+To modify the MMSGate log level details, again edit the "mmsgate.conf" file.  In the "[mmsgate]" section, set option "logger" to "DEBUG".  Also set "loggerfile" to "/tmp/mmsgate.log".  Again, restart MMSGate script and wait 60 seconds.  Then use this command to view the log file:
 ```
 docker exec -it mmsgate tail -f /tmp/mmsgate.log
 ```
-Once done, return the settings in the MMSGate configuration file to the original values and restart the MMSGate script.  
+Once done, return the settings in the MMSGate configuration file to their original values and restart the MMSGate script.  
