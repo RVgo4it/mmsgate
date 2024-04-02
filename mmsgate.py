@@ -11,6 +11,8 @@
 # NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
 # OF THIS SOFTWARE.
 
+# v0.1.3 4/2/2024 Fixed makexmlconf.py and added log details to README
+# v0.1.2 4/1/2024 Fixed timezone and added log details to README
 # v0.1.1 3/31/2024 Added mmsreconcile.py and other DB tools
 # v0.1.0 3/30/2024 Added tracking of VoIP.ms message id and flex args
 # v0.0.1 3/29/2024 Initial
