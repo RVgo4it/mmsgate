@@ -228,7 +228,6 @@ Logon to VoIP.ms portal, https://voip.ms/
 * Edit each sub account that will be used with MMSGate.  
 	* Edit "CallerID Number", selecting the DID that will be associated with sending and receiving SMS/MMS messages for this account.
 	* Edit "Encrypted SIP Traffic", matching the clients transport method.
-	* If using Push Notification, Edit "Max Expiry" to 604800.  
 	* Edit other settings as needed.
 	* Apply changes
 
