@@ -34,6 +34,10 @@ args = [("--add-path",{"default":"conf","type":str,"help":"Add this path to the 
 from mmsgate import config_class
 cfg = config_class(args)
 
+fcfg = configparser.ConfigParser()
+fcfg.read("/etc/flexisip/flexisip.conf")
+maxexp = fcfg["module::Registrar"]["max-expires"]
+
 # need the API id/pw
 apiid = cfg.get("api","apiid")
 apipw = cfg.get("api","apipw")
@@ -70,6 +74,11 @@ xmltemplate = '''<config xmlns="http://www.linphone.org/xsds/lpconfig.xsd" xmlns
 <entry name="transient_provisioning" overwrite="true">1</entry>
 <entry name="hide_chat_rooms_from_removed_proxies" overwrite="true">0</entry>
 </section>
+<section name="app">
+<entry name="keep_service_alive" overwrite="true">1</entry>
+<entry name="auto_start" overwrite="true">1</entry>
+<entry name="publish_presence" overwrite="true">0</entry>
+</section>
 <section name="nat_policy_default_values">
 <entry name="stun_server">{proxy}</entry>
 <entry name="protocols">stun,ice</entry>
@@ -94,7 +103,7 @@ xmltemplate = '''<config xmlns="http://www.linphone.org/xsds/lpconfig.xsd" xmlns
 <entry name="quality_reporting_collector" overwrite="true">{proto}:voip-metrics@{proxy};transport={tran}</entry>
 <entry name="quality_reporting_enabled" overwrite="true">1</entry>
 <entry name="quality_reporting_interval" overwrite="true">180</entry>
-<entry name="reg_expires" overwrite="true">31536000</entry>
+<entry name="reg_expires" overwrite="true">{regexp}</entry>
 <entry name="reg_sendregister" overwrite="true">1</entry>
 <entry name="publish" overwrite="true">1</entry>
 <entry name="avpf" overwrite="true">1</entry>
@@ -105,6 +114,7 @@ xmltemplate = '''<config xmlns="http://www.linphone.org/xsds/lpconfig.xsd" xmlns
 '''
 
 input_subacct = input("Enter subaccount (* for all): ")
+if input_subacct == "": exit()
 
 # get the list of servers
 url="https://voip.ms/api/v1/rest.php?api_username={}&api_password={}&method=getServersInfo"
@@ -158,6 +168,7 @@ for acct in rslta["accounts"]:
       menc = "srtp"
     dom = dids[acct["callerid_number"]]
     user = acct["account"]
+    regexp = acct["max_expiry"]
     pw = acct["password"]
     m = hashlib.md5()
     if cfg.args.no_password:
@@ -165,7 +176,7 @@ for acct in rslta["accounts"]:
     else:
       m.update((user+":"+dom+":"+pw).encode('utf-8'))
     ha1 = m.hexdigest()
-    xml = xmltemplate.format(proxy = proxy, user = user, dom = dom, ha1 = ha1, tran = tran, proto = proto, menc = menc)
+    xml = xmltemplate.format(proxy = proxy, user = user, dom = dom, ha1 = ha1, tran = tran, proto = proto, menc = menc, regexp = regexp)
     xmlfile = destdir+user+".xml"
     print("Creating XML file at:",xmlfile)
     with open(xmlfile, "w") as f:
