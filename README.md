@@ -391,7 +391,12 @@ options:
 ```
 The script will display the URL needed by the client.  Optionally, it will also display the container path to QR code image file.  Send the end user the URL and/or the QR code image.
 
-From the Linphone client, select "Assistant" and "Fetch remote configuration".  Enter the URL to the XML file or scan the QR code.  Then tap "Fetch and apply" and configuration is complete.
+From the Linphone client, select "Assistant" and "Fetch remote configuration".  Enter the URL to the XML file or scan the QR code.  Then tap "Fetch and apply" and the Linphone app configuration is complete.
+
+However, other settings will be needed to insure Linphone can respond and connect to the network when needed.  Mobile operating system will often put apps to sleep and cut them off from network data.  Adjust the settings as needed to allow the Linphone app to wake up and access network data to respond to push notifications or to renew it's registration.  Test the settings while on Wifi and on mobile data.  To monitor registration renewals so as to confirm proper operations, use this command:
+```
+docker exec -it mmsgate sudo su -c /home/mmsgate/script/regmon.py mmsgate
+```
 
 ## Flexisip Message Queue Database
 Normally, when a Flexisip receives a message for a Linphone client from MMSGate, it wakes up the client via Push Notification and delivers it immediately.  However, sometimes the client is unresponsive. In this case, Flexisip buffers the message in memory until the client is available.  
