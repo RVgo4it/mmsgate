@@ -11,6 +11,7 @@
 # NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
 # OF THIS SOFTWARE.
 
+# v0.1.4 4/5/2024 Fixed makexmlconf.py, added regmon.py and mmsgate.py retry delay
 # v0.1.3 4/2/2024 Fixed makexmlconf.py and added log details to README
 # v0.1.2 4/1/2024 Fixed timezone and added log details to README
 # v0.1.1 3/31/2024 Added mmsreconcile.py and other DB tools
@@ -636,7 +637,7 @@ class db_class():
     conn.execute("CREATE INDEX IF NOT EXISTS sm_stats2 ON send_msgs (direction,init_ts);")
     conn.commit()
     # get one queued message (oldest) per destination.
-    sql_select_pending = "SELECT rcvd_ts,sent_ts,fromid,fromdom,toid,todom,message,direction,msgstatus,did,min(rowid) as rowid,msgtype "+ \
+    sql_select_pending = "SELECT rcvd_ts,sent_ts,fromid,fromdom,toid,todom,message,direction,msgstatus,did,min(rowid) as rowid,msgtype,trycnt "+ \
       "FROM send_msgs WHERE msgstatus NOT IN ('200','202') GROUP BY toid;"
     # updates for message status
     sql_update_status_via_rowid = "UPDATE send_msgs SET sent_ts = unixtime(0),msgstatus = ?, trycnt = trycnt + 1 WHERE rowid = ?;"
@@ -657,7 +658,7 @@ class db_class():
        # loop forever
        while True:
         # get oldest queued messages for each destination (to)
-        for rcvd_ts,sent_ts,fromid,fromdom,toid,todom,message,direction,msgstatus,did,rowid,msgtype in conn.execute(sql_select_pending).fetchall():
+        for rcvd_ts,sent_ts,fromid,fromdom,toid,todom,message,direction,msgstatus,did,rowid,msgtype,trycnt in conn.execute(sql_select_pending).fetchall():
           _logger.debug(str(("SELECT record: ",rcvd_ts,sent_ts,fromid,fromdom,toid,todom,message,direction,msgstatus,did,rowid,msgtype)))
           # queued means it is ready to try
           if msgstatus == "QUEUED":
@@ -738,7 +739,8 @@ class db_class():
 
           # is it a message we tried before?  if timeout, then queue it back up.
           if msgstatus != "QUEUED":
-            if (datetime.utcnow() - datetime.utcfromtimestamp(sent_ts)) > td_timeout:
+            # time between retry will grow exponentially
+            if (datetime.utcnow() - datetime.utcfromtimestamp(sent_ts)) > (td_timeout * trycnt * trycnt):
               self.update_row_db(conn,sql_update_status_via_rowid,("QUEUED",rowid))
 
         # check the inter-process queue
