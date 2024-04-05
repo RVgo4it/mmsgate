@@ -144,7 +144,7 @@ To start or stop the container, use these commands:
 docker stop mmsgate
 docker start mmsgate
 ```
-Note: Try to avoid restarting Flexisip.  Restarting Flexisip will cause loss of current registrations and buffered messages, both kept in memory.  It may require some of the clients to re-register via opening the client app.  See the Flexisip Message Queue Database section of this document for details on the buffered message.  
+Note: Try to avoid restarting Flexisip.  Restarting Flexisip will cause any current calls to drop, plus loss of current registrations and buffered messages, both kept in memory.  It may require some of the clients to re-register via opening the client app.  See the Flexisip Message Queue Database section of this document for details on the buffered message.  
 
 To copy files into or out of the container, use commands like these:
 ```
