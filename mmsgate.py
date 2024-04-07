@@ -11,6 +11,7 @@
 # NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
 # OF THIS SOFTWARE.
 
+# v0.2.1 4/6/2024 Added internal extension support and bug fixes.
 # v0.1.4 4/5/2024 Fixed makexmlconf.py, added regmon.py and mmsgate.py retry delay
 # v0.1.3 4/2/2024 Fixed makexmlconf.py and added log details to README
 # v0.1.2 4/1/2024 Fixed timezone and added log details to README
@@ -58,14 +59,17 @@ class pjsip_class():
         self.pjsip.db_q.put_nowait(("MsgStatus",prm.code,toname,todom,prm.msgBody))
       # got a message from the flexisip proxy event
       def onInstantMessage(self, prm):
-        # ignore if not an MMS message
-        if prm.contentType != "application/vnd.gsma.rcs-ft-http+xml": return
+        # ignore if not an SMS/MMS message
+        if prm.contentType != "text/plain" and prm.contentType != "application/vnd.gsma.rcs-ft-http+xml": return
         _logger.debug("onInstantMessage msgBody: "+str(prm.msgBody))
         # collect info from header
         fromname,fromdom = self.pjsip.uri2name(prm.fromUri)
         toname,todom = self.pjsip.uri2name(prm.toUri)
         # queue it up in the DB for forwarding
-        self.pjsip.db_q.put_nowait(("MsgNew",fromname,fromdom,toname,todom,prm.msgBody,"OUT",None,"MMS",None))
+        if prm.contentType == "text/plain":
+          self.pjsip.db_q.put_nowait(("MsgNew",fromname,fromdom,toname,todom,prm.msgBody,"OUT",None,"SMS",None))
+        if prm.contentType == "application/vnd.gsma.rcs-ft-http+xml":
+          self.pjsip.db_q.put_nowait(("MsgNew",fromname,fromdom,toname,todom,prm.msgBody,"OUT",None,"MMS",None))
 
     try:
       # Create and initialize the library
@@ -192,7 +196,7 @@ class pjsip_class():
       if mtype:
         prm.contentType = mtype
       # masquerading as the pstn source?
-      if fromuri and did:
+      if fromuri:
         prm.txOption.localUri = fromuri
       # contact from aor?
       if contact:
@@ -253,6 +257,8 @@ class api_class():
         # get list of accounts and their caller ids
         caller_ids = {}
         did_accts_tmp = {}
+        int_ext = {}
+        int_ext_id = {}
         url="https://voip.ms/api/v1/rest.php?api_username={}&api_password={}&method=getSubAccounts"
         r = requests.get(url.format(cfg.get('api','apiid'),cfg.get('api','apipw')))
         rslt = r.json()
@@ -262,9 +268,16 @@ class api_class():
             if acct["callerid_number"] not in did_accts_tmp.keys():
               did_accts_tmp[acct["callerid_number"]] = []
             did_accts_tmp[acct["callerid_number"]].append(acct["account"])
+          if acct["internal_extension"] != "":
+            int_ext["10"+acct["internal_extension"]] = acct["account"]
+            int_ext_id[acct["account"]] = "10"+acct["internal_extension"]
         self.did_accts = did_accts_tmp
         _logger.debug(str(("Caller IDs updated:",caller_ids)))
         _logger.debug(str(("DID Accounts updated:",self.did_accts)))
+        _logger.debug(str(("internal extensions updated:",int_ext)))
+        _logger.debug(str(("internal extensions by id updated:",int_ext_id)))
+        if self.db_q:
+          self.db_q.put_nowait(("IntExt",int_ext,int_ext_id))
         last_dt = datetime.now()
 
       try:
@@ -453,7 +466,7 @@ class web_class():
                     for toid in self.api.did_accts[todid["phone_number"]]:
                       # check filter via checking each DID for a True result from the expression
                       filter = False
-                      if cfg.exists("web","webfilter"):
+                      if cfg.exists("web","webfilter") and todid["phone_number"] in eval(cfg.get("web","webfilter")):
                         _logger.debug(str(("webfilter",eval(cfg.get("web","webfilter")),todid["phone_number"])))
                         for evalexp in eval(cfg.get("web","webfilter"))[todid["phone_number"]]:
                           _logger.debug(str(("Filter:",toid,evalexp,eval(evalexp),todid["phone_number"])))
@@ -653,6 +666,8 @@ class db_class():
       "SELECT direction as dir, 'Queue backlog' as stat, COUNT(rowid) AS count FROM send_msgs WHERE msgstatus not in ('200','202') GROUP BY direction;"
     # amount of time before trying to send again
     td_timeout = timedelta(minutes=1)
+    int_ext = {}
+    int_ext_id = {}
 
     try:
        # loop forever
@@ -672,7 +687,7 @@ class db_class():
                 # found one!
                 contact = self.contact2uri(newtoid,newtodom,details)
                 if contact:
-                  toaddr = toid+"@"+cfg.get("web","webdns")
+                  toaddr = toid+"@"+newtodom
                   if contact[0:5] == "sips:":
                     fromaddr = "\""+fromid+"\" <sips:"+fromid+"@"+newtodom+">"
                   else:
@@ -693,49 +708,62 @@ class db_class():
                 _logger.debug("contact for "+toid+" not found ")
                 self.update_row_db(conn,sql_update_status_via_rowid,("Missing AOR",rowid))
 
-            # going to PSTN, must be MMS
+            # going to PSTN or internal extention
             else:
-              try:
-                # parse the body as XML
-                root = ET.fromstring(message)
-                # loop for each file elem
-                file_url = []
-                for fe in root.findall("./"):
-                  ftype,furl,fname = "","",""
-                  # Loop for each file info elem and get needed values
-                  for fie in fe.findall("./"):
-                    if "}content-type" in fie.tag: ftype = fie.text.split(";")[0]
-                    if "}data" in fie.tag: furl = fie.attrib["url"]
-                    if "}file-name" in fie.tag: fname = fie.text
-                  _logger.debug("Parsed XML: "+str((fname, ftype, furl)))
-                  file_url.append({"name":fname, "type":ftype, "url":furl})
-                # did we get a url for the file?  if so, we'll send it via API
-                if len(file_url) != 0:
-                  # send SMS message containing just the url?
-                  if cfg.get("mmsgate","outvia") == "sms":
-                    for furl in file_url:
-                      self.api_q.put_nowait(("MsgSend",fromid,fromdom,toid,todom,furl["url"],"SMS"))
-                      self.update_row_db(conn,sql_update_status_via_rowid,("TRYING",rowid))
-                  # send MMS for only some kinds of media, SMS others?
-                  elif cfg.get("mmsgate","outvia") == "auto":
-                    for furl in file_url:
-                      if furl["type"].split(";")[0] in cfg.get("mmsgate","autotypes"):
-                        self.api_q.put_nowait(("MsgSend",fromid,fromdom,toid,todom,furl["url"],"MMS"))
-                        self.update_row_db(conn,sql_update_status_via_rowid,("TRYING",rowid))
+              # int ext?
+              if toid in int_ext and fromid in int_ext_id:
+                _logger.debug(str(("MsgSend Int Ext",fromid,fromdom,toid,todom,message,msgtype)))
+                # mark it done
+                self.update_row_db(conn,sql_update_status_via_rowid,(200,rowid))
+                # turn it around as inbound
+                self.db_q.put_nowait(("MsgNew",int_ext_id[fromid],None,int_ext[toid],None,message,"IN",None,msgtype,None))
+              # PSTN via API
+              else:
+                try:
+                  if msgtype == "MMS":
+                    # parse the body as XML
+                    root = ET.fromstring(message)
+                    # loop for each file elem
+                    file_url = []
+                    for fe in root.findall("./"):
+                      ftype,furl,fname = "","",""
+                      # Loop for each file info elem and get needed values
+                      for fie in fe.findall("./"):
+                        if "}content-type" in fie.tag: ftype = fie.text.split(";")[0]
+                        if "}data" in fie.tag: furl = fie.attrib["url"]
+                        if "}file-name" in fie.tag: fname = fie.text
+                      _logger.debug("Parsed XML: "+str((fname, ftype, furl)))
+                      file_url.append({"name":fname, "type":ftype, "url":furl})
+                    # did we get a url for the file?  if so, we'll send it via API
+                    if len(file_url) != 0:
+                      # send SMS message containing just the url?
+                      if cfg.get("mmsgate","outvia") == "sms":
+                        for furl in file_url:
+                          self.api_q.put_nowait(("MsgSend",fromid,fromdom,toid,todom,furl["url"],"SMS"))
+                          self.update_row_db(conn,sql_update_status_via_rowid,("TRYING",rowid))
+                      # send MMS for only some kinds of media, SMS others?
+                      elif cfg.get("mmsgate","outvia") == "auto":
+                        for furl in file_url:
+                          if furl["type"].split(";")[0] in cfg.get("mmsgate","autotypes"):
+                            self.api_q.put_nowait(("MsgSend",fromid,fromdom,toid,todom,furl["url"],"MMS"))
+                            self.update_row_db(conn,sql_update_status_via_rowid,("TRYING",rowid))
+                          else:
+                            self.api_q.put_nowait(("MsgSend",fromid,fromdom,toid,todom,furl["url"],"SMS"))
+                            self.update_row_db(conn,sql_update_status_via_rowid,("TRYING",rowid))
+                      # or always send as MMS.  voip.ms cannot handle just any media.  so, this can fail
                       else:
-                        self.api_q.put_nowait(("MsgSend",fromid,fromdom,toid,todom,furl["url"],"SMS"))
-                        self.update_row_db(conn,sql_update_status_via_rowid,("TRYING",rowid))
-                  # or always send as MMS.  voip.ms cannot handle just any media.  so, this can fail
+                        for furl in file_url:
+                          self.api_q.put_nowait(("MsgSend",fromid,fromdom,toid,todom,furl["url"],"MMS"))
+                          self.update_row_db(conn,sql_update_status_via_rowid,("TRYING",rowid))
+                      _logger.debug("Sent via API: "+str((toid,file_url)))
+                    else:
+                      _logger.error("Error: Did not find any URLs in msgBody: "+prm.msgBody)
+                      self.update_row_db(conn,sql_update_requeue_via_rowid,("No URL",rowid))
                   else:
-                    for furl in file_url:
-                      self.api_q.put_nowait(("MsgSend",fromid,fromdom,toid,todom,furl["url"],"MMS"))
+                      self.api_q.put_nowait(("MsgSend",fromid,fromdom,toid,todom,message,"SMS"))
                       self.update_row_db(conn,sql_update_status_via_rowid,("TRYING",rowid))
-                  _logger.debug("Sent via API: "+str((toid,file_url)))
-                else:
-                  _logger.error("Error: Did not find any URLs in msgBody: "+prm.msgBody)
-                  self.update_row_db(conn,sql_update_requeue_via_rowid,("No URL",rowid))
-              except:
-                PrintException()
+                except:
+                  PrintException()
 
           # is it a message we tried before?  if timeout, then queue it back up.
           if msgstatus != "QUEUED":
@@ -750,13 +778,16 @@ class db_class():
           # we got a result from pjsua2"s onInstantMessageStatusor other results?
           if item[0] == "MsgStatus":
             mtype,prmcode,toid,todom,prmmsgBody = item
-          # put the result in the db. we only get back the message and destination (to).  so use the destination (to) find original message.
+            # put the result in the db. we only get back the message and destination (to).  so use the destination (to) find original message.
             self.update_row_db(conn,sql_update_status_via_to,(str(prmcode),toid))
           # got a new message.  place it in the db as a queued message to send.
           if item[0] == "MsgNew":
             mtype,fromid,fromdom,toid,todom,message,direction,did,msgtype,msgid = item
             cnt = conn.execute(sql_insert_new,(fromid,fromdom,toid,todom,message,direction,did,msgtype,msgid))
             conn.commit()
+          # internal extension update?
+          if item[0] == "IntExt":
+            mtype,int_ext,int_ext_id = item
           # shutdown?
           if item[0] == "Done":
             break
