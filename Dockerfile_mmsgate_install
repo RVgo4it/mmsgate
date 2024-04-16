@@ -7,7 +7,7 @@ MAINTAINER https://github.com/RVgo4it
 
 # install needed apps
 USER root
-RUN apt install -y python3-suds dumb-init
+RUN apt install -y python3-suds python3-multipart gunicorn dumb-init
 
 # Configure user mmsgate, no sudo
 RUN useradd -ms /bin/bash mmsgate && \

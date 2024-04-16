@@ -11,6 +11,7 @@
 # NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
 # OF THIS SOFTWARE.
 
+# v0.3.1 4/16/2024 Added file server support, added Gunicorn and fixes
 # v0.2.1 4/6/2024 Added internal extension support and bug fixes.
 # v0.1.4 4/5/2024 Fixed makexmlconf.py, added regmon.py and mmsgate.py retry delay
 # v0.1.3 4/2/2024 Fixed makexmlconf.py and added log details to README
@@ -354,52 +355,91 @@ class api_class():
 
 # this thread runs the httpd/wsgi thread for receiving http(s) requests
 class web_class():
+  import gunicorn.app.base
   db_q = None
   api = None
 
-  # initial setup of the web server for webhook and media server
-  def __init__(self):
-    # setup up web server
-    import threading
-    from socketserver import ThreadingMixIn
-    from wsgiref.simple_server import make_server, WSGIServer, WSGIRequestHandler
-    # multi threaded WSGI server
-    class ThreadingWSGIServer (ThreadingMixIn, WSGIServer): pass
-    # we don't want to usual httpd logging.  we'll use our own.
-    class NoLoggingWSGIRequestHandler(WSGIRequestHandler):
-      def log_message(self, format, *args):
-        _logger.debug(self.client_address[0]+" - "+format%args)
-    # the http server
-    httpd = make_server('', cfg.get("web","webport"), self.webhook_app, ThreadingWSGIServer, NoLoggingWSGIRequestHandler)
-    # TLS stuff
-    if cfg.get("web","protocol") == "https":
-      if cfg.exists("web","cert") and cfg.exists("web","cert"):
-        import ssl
-        try:
-          cert = cfg.get("web","cert")
-          key = cfg.get("web","key")
-          _logger.debug(str(("Loaging https crypto:",cert,key)))
-          context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-          context.load_cert_chain(cert, key)
-          httpd.socket = context.wrap_socket(httpd.socket, server_side=True )
-        except:
-          PrintException()
-          _logger.error("Failed to load SSL/TLS!  No encryption activated.  Exiting...")
-          exit()
-      else:
-        raise ValueError("For https protocol, section/option of web/cert and web/key are required in config file.  Please correct.")
-    # the thread for the web server
-    self.t = threading.Thread(name="WEB-THREAD", target=httpd.serve_forever, daemon=True)
+  # return calc for number of threads for gunicorn
+  def number_of_threads(self):
+    import multiprocessing
+    return (multiprocessing.cpu_count() * 2) + 1
 
-  # start the http server thread
+  # return calc for number of processes for gunicorn
+  def number_of_workers(self):
+    import multiprocessing
+    return (multiprocessing.cpu_count() * 2) + 1
+
+  # this is the class for starting gunicorn
+  class StandaloneApplication(gunicorn.app.base.BaseApplication):
+
+    def __init__(self, app, options=None):
+        self.options = options or {}
+        self.application = app
+        super().__init__()
+
+    def load_config(self):
+        config = {key: value for key, value in self.options.items()
+                  if key in self.cfg.settings and value is not None}
+        for key, value in config.items():
+            self.cfg.set(key.lower(), value)
+
+    def load(self):
+        return self.application
+
+  # start the web thread and the gunicorn processes
   def start(self):
     self.t.start()
+    self.app.run()
 
-  # process the webhook POST or the MMS media GET
+  # interface for gunicorn processes to talk to other threads
+  def thread2process_q(self):
+    import multiprocessing
+    while True:
+      i = self.webr_q.get()
+      _logger.debug(str(("thread2process_q",i)))
+      if i[0] == "GetAccts":
+        self.weba_q.put_nowait(self.api.did_accts)
+      if i[0] == "MsgNew":
+        self.db_q.put_nowait(i)
+
+  # init for web class
+  def __init__(self):
+    import threading
+    import multiprocessing
+    # gunicorn options
+    options = {
+        'bind': '%s:%s' % (cfg.get("web","webbind"), str(cfg.get("web","webport"))),
+        'timeout': 0,
+        'workers': self.number_of_workers(),
+        'threads': self.number_of_threads()
+    }
+    # tls?
+    if cfg.get("web","protocol") == "https":
+      if cfg.exists("web","cert") and cfg.exists("web","cert"):
+          cert = cfg.get("web","cert")
+          key = cfg.get("web","key")
+          options["certfile"] = cert
+          options["keyfile"] = key
+      else:
+        raise ValueError("For https protocol, section/option of web/cert and web/key are required in config file.  Please correct.")
+    # init for web request/answer queues
+    self.webr_q = multiprocessing.Queue()
+    self.weba_q = multiprocessing.Queue()
+    # prep the gunicorn app and web thread
+    self.app = web_class.StandaloneApplication(self.webhook_app, options)
+    self.t = threading.Thread(name="WEB-THREAD", target=self.thread2process_q, daemon=True)
+
+  # start the http server thread and gunicorn processes
+  def start(self):
+    self.t.start()
+    self.app.run()
+
+  # process the webhook POST or the MMS media GET or file upload
   def webhook_app(self, environ, start_response):
       from wsgiref import util
       from datetime import datetime, timezone, timedelta
       import mimetypes
+      import multipart
       import requests
       import json
       import uuid
@@ -417,7 +457,71 @@ class web_class():
       # get the httpd request params
       path    = environ["PATH_INFO"]
       method  = environ["REQUEST_METHOD"]
-      # maybe a web hook
+      _logger.debug("WEB App: "+method+" "+path)
+      # maybe a POST for file server?
+      if method == "POST" and path.startswith(cfg.get("web","pathfile")):
+            try:
+                # content length will tell us if initial conect or file upload
+                _logger.debug("POST to fileserver:"+str(environ))
+                if "CONTENT_LENGTH" in environ and environ["CONTENT_LENGTH"] != "":
+                  request_body_size = int(environ["CONTENT_LENGTH"])
+                else:
+                  request_body_size = 0
+                # just init contact
+                if request_body_size == 0:
+                  # return 204
+                  status = "204 No Content"
+                  response_body = b""
+                # return 200 if got file POST
+                else:
+                  multipart_headers = {'Content-Type': environ['CONTENT_TYPE']}
+                  multipart_headers['Content-Length'] = environ['CONTENT_LENGTH']
+                  web_class.webhook_app.resp = ""
+                  # this is called from parse_form
+                  def on_file(file):
+                    _logger.debug(str(("file:",file,file.field_name,file.file_name,file.file_object)))
+                    # get the local file name
+                    fileext = os.path.splitext(file.file_name.decode('utf-8'))[1].lower()
+                    fname = str(uuid.uuid4())+fileext
+                    path = os.path.expanduser(cfg.get("web","localmedia"))
+                    fpath = os.path.join(path,fname)
+                    _logger.debug("Local path: "+fpath)
+                    # write the POST-ed file to local file
+                    file.file_object.seek(0)
+                    with open(fpath, "wb") as f:
+                        f.write(file.file_object.read())
+                    # get info for XML file
+                    filesize = os.path.getsize(fpath)
+                    filetype = mimetypes.guess_type(fpath)[0]
+                    furl = cfg.get("web","protocol") + "://" + cfg.get("web","webdns") + ":" + str(cfg.get("web","webport")) + cfg.get("web","pathget") + "/" + fname
+                    _logger.debug("url: "+furl)
+                    until = (datetime.now(tz=timezone.utc)+timedelta(days=365)).isoformat()[:19]+"Z"
+                    # got XML file to return
+                    web_class.webhook_app.resp += mms_template.format(filesize,file.file_name.decode('utf-8'),filetype,furl,until)
+                  # parse the POST-ed file
+                  multipart.parse_form(multipart_headers, environ['wsgi.input'],
+                    lambda field:
+                      print("field:",field,field.field_name,field.value),
+                    on_file, chunk_size=1024 * 8 )
+                  # no file POST found?
+                  if web_class.webhook_app.resp == "":
+                    raise ValueError("No POST-ed file found.")
+                  else:
+                    status = "200 OK"
+                    response_body = str.encode(web_class.webhook_app.resp)
+            except:
+                PrintException()
+                status = "500 Error"
+                response_body = b"Internal error"
+            else:
+                pass
+            finally:
+                _logger.debug("Returning: "+status)
+                headers = [("Content-type", "text/plain"),
+                    ("Content-Length", str(len(response_body)))]
+                start_response(status, headers)
+                return [response_body]
+      # maybe web hook POST from voip.ms
       if method == "POST" and path.startswith(cfg.get("web","pathpost")):
             try:
                 # the web hook data is in JSON format
@@ -459,11 +563,16 @@ class web_class():
                     _logger.debug("MMS Message: "+mms_msaages[-1])
                   else:
                     _logger.error("URL download failed: "+media["url"])
+                # need the did_accts to find who gets a copy of the message
+                _logger.error("Requesting did_accts from API process-thread")
+                self.webr_q.put(("GetAccts",))
+                did_accts = self.weba_q.get()
+                _logger.error("Got did_accts from API process-thread"+str(did_accts))
                 # the to (destination) is a DID. we'll use the CID setting from voip.ms for the sub account to receive.
                 for todid in payload["to"]:
-                  if todid["phone_number"] in self.api.did_accts.keys():
+                  if did_accts and todid["phone_number"] in did_accts.keys():
                     # send it (SMS or MMS) to every sub account using the DID as CID.
-                    for toid in self.api.did_accts[todid["phone_number"]]:
+                    for toid in did_accts[todid["phone_number"]]:
                       # check filter via checking each DID for a True result from the expression
                       filter = False
                       if cfg.exists("web","webfilter") and todid["phone_number"] in eval(cfg.get("web","webfilter")):
@@ -476,15 +585,15 @@ class web_class():
                       if filter: continue
                       # SMS message?
                       if payload["type"] == "SMS":
-                        self.db_q.put_nowait(("MsgNew",payload["from"]["phone_number"],None,toid,None,payload["text"],"IN",todid["phone_number"],"SMS",payload["id"]))
+                        self.webr_q.put_nowait(("MsgNew",payload["from"]["phone_number"],None,toid,None,payload["text"],"IN",todid["phone_number"],"SMS",payload["id"]))
                       # must be MMS
                       else:
                         if payload["text"] != "":
-                          self.db_q.put_nowait(("MsgNew",payload["from"]["phone_number"],None,toid,None,payload["text"],"IN",todid["phone_number"],"SMS",payload["id"]))
+                          self.webr_q.put_nowait(("MsgNew",payload["from"]["phone_number"],None,toid,None,payload["text"],"IN",todid["phone_number"],"SMS",payload["id"]))
                         for mmsmsg in mms_msaages:
-                          self.db_q.put_nowait(("MsgNew",payload["from"]["phone_number"],None,toid,None,mmsmsg,"IN",todid["phone_number"],"MMS",payload["id"]))
+                          self.webr_q.put_nowait(("MsgNew",payload["from"]["phone_number"],None,toid,None,mmsmsg,"IN",todid["phone_number"],"MMS",payload["id"]))
                   else:
-                    _logger.error("The DID "+todid["phone_number"]+" not found in api.did_accts.keys(): "+str(self.api.did_accts.keys()))
+                    _logger.error("The DID "+todid["phone_number"]+" not found in API's did_accts.keys(): "+str(self.api.did_accts.keys()))
             # something very wrong
             except:
                 PrintException()
@@ -510,11 +619,11 @@ class web_class():
             fpath = os.path.join(lpath, rpath)
             _logger.debug(str(("GET method: fpath:",fpath)))
             if os.path.exists(fpath):
-                type = mimetypes.guess_type(fpath)[0]
+                ftype = mimetypes.guess_type(fpath)[0]
                 filelen = os.path.getsize(fpath)
-                start_response("200 OK", [("Content-Type", type),
-                ("Content-Length", str(filelen))])
-                return util.FileWrapper(open(fpath, "rb"))
+                start_response("200 OK", [("Content-Type", ftype),
+                  ("Content-Length", str(filelen))])
+                return util.FileWrapper(open(fpath, "rb"),1024*1024)
       # not the right paths for GET/POST
       response_body = b"Oops... missing something!"
       status = "404 Not found"
@@ -827,9 +936,11 @@ class config_class:
     "sipproxy": "localhost",
     "siploglevel": "0",
     "sipconsoleloglevel": "0"},
-    "web": {"webport": "38443",
+    "web": {"webbind": "0.0.0.0",
+    "webport": "38443",
     "protocol": "http",
     "pathget": "/mmsmedia",
+    "pathfile": "/file",
     "localmedia": "~/mmsmedia",
     "pathpost": "/mmsgate"},
     "mmsgate": {"outvia": "auto",
@@ -867,7 +978,9 @@ class config_class:
     "key": "This is the path to the private key file.  It is needed for https protocol.",
     "pathpost": "This is the path the web hook url uses.",
     "pathget": "This is the path the MMS media url uses.",
+    "pathfile": "This is the path the MMS file server upload uses.",
     "localmedia": "This is the local path for MMS media file storage.  A ~ can be used for home. The path must exist and account have r/w permissions.",
+    "webbind": "This is the IP address to bind for the WSGI webhook service",
     "webport": "This is the port number for the WSGI webhook service",
     "webdns": "Required.  This is the DNS name of the webhook web server and MMS URL web server, i.e., this server.",
     "webfilter": '''This filters the receiving ID mapping to sub accounts.  Normally, all sub accounts with caller id matching the DID will receive a copy of the message.
@@ -1008,7 +1121,7 @@ class config_class:
     self.load(args.config_file)
     # setup logger
     date_fmt = '%Y-%m-%d %H:%M:%S'
-    log_format = "%(levelname)s %(asctime)s.%(msecs)03d %(threadName)s %(name)s.%(funcName)s %(message)s"
+    log_format = "%(levelname)s %(asctime)s.%(msecs)03d %(process)d %(threadName)s %(name)s.%(funcName)s %(message)s"
     try:
       if hasattr(args,"mmsgate_logger") and args.mmsgate_logger != "":
         loglvl = eval("logging."+args.mmsgate_logger)
@@ -1080,7 +1193,7 @@ if __name__ == "__main__":
   _logger.debug("threads started")
   # watch the threads.  if one exists, shutdown...
   while True:
-    for t in (db.t,pjsip.t,web.t,api.t):
+    for t in (db.t,pjsip.t,web_t,api.t):
       if not t.is_alive():
         _logger.error("Thread "+t.name+" has ended.  Exiting MMSGate in 5 seconds.")
         # tell DB and PJSIP threads to exit

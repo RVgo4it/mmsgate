@@ -29,7 +29,8 @@ from pathlib import Path
 args = [("--add-path",{"default":"conf","type":str,"help":"Add this path to the local and web paths.  Default is \"conf\"."}),
   ("--web-path",{"type":str,"help":"Use this URL path for the locations.  Default is the settings in mmsgate.conf."}),
   ("--local-path",{"type":str,"help":"Use this local path for the file locations.  Default is the setting in mmsgate.conf."}),
-  ("--no-password",{"action":"store_true","help":"Do not store the password in the XML config file."})]
+  ("--no-password",{"action":"store_true","help":"Do not store the password in the XML config file."}),
+  ("--debug",{"action":"store_true","help":"Turn on debug messages."})]
 
 from mmsgate import config_class
 cfg = config_class(args)
@@ -73,6 +74,7 @@ xmltemplate = '''<config xmlns="http://www.linphone.org/xsds/lpconfig.xsd" xmlns
 <!--  apply remote provisioning only once -->
 <entry name="transient_provisioning" overwrite="true">1</entry>
 <entry name="hide_chat_rooms_from_removed_proxies" overwrite="true">0</entry>
+<entry name="file_transfer_server_url" overwrite="true">{fileserver}</entry>
 </section>
 <section name="app">
 <entry name="keep_service_alive" overwrite="true">1</entry>
@@ -120,6 +122,7 @@ if input_subacct == "": exit()
 url="https://voip.ms/api/v1/rest.php?api_username={}&api_password={}&method=getServersInfo"
 r = requests.get(url.format(apiid,apipw))
 rslts = r.json()
+if cfg.args.debug: print("DEBUG: getServersInfo:",rslts)
 if rslts["status"] != "success":
   print("Server search failure.")
   exit()
@@ -132,6 +135,7 @@ for srv in rslts["servers"]:
 url="https://voip.ms/api/v1/rest.php?api_username={}&api_password={}&method=getDIDsInfo"
 r = requests.get(url.format(apiid,apipw))
 rsltd = r.json()
+if cfg.args.debug: print("DEBUG: getDIDsInfo:",rsltd)
 if rsltd["status"] != "success":
   print("DID search failure.")
   exit()
@@ -148,6 +152,7 @@ else:
   url="https://voip.ms/api/v1/rest.php?api_username={}&api_password={}&method=getSubAccounts&account="+input_subacct
 r = requests.get(url.format(apiid,apipw))
 rslta = r.json()
+if cfg.args.debug: print("DEBUG: getSubAccounts:",rslta)
 if rslta["status"] != "success":
   print("Subaccount search failure.")
   exit()
@@ -166,6 +171,7 @@ for acct in rslta["accounts"]:
       proto = "sips"
       tran = "tls"
       menc = "srtp"
+    fileserver = cfg.get("web","protocol")+"://"+proxy+":"+str(cfg.get("web","webport"))+cfg.get("web","pathfile")
     dom = dids[acct["callerid_number"]]
     user = acct["account"]
     regexp = acct["max_expiry"]
@@ -176,7 +182,7 @@ for acct in rslta["accounts"]:
     else:
       m.update((user+":"+dom+":"+pw).encode('utf-8'))
     ha1 = m.hexdigest()
-    xml = xmltemplate.format(proxy = proxy, user = user, dom = dom, ha1 = ha1, tran = tran, proto = proto, menc = menc, regexp = regexp)
+    xml = xmltemplate.format(proxy = proxy, user = user, dom = dom, ha1 = ha1, tran = tran, proto = proto, menc = menc, regexp = regexp, fileserver = fileserver)
     xmlfile = destdir+user+".xml"
     print("Creating XML file at:",xmlfile)
     with open(xmlfile, "w") as f:
