@@ -564,10 +564,10 @@ class web_class():
                   else:
                     _logger.error("URL download failed: "+media["url"])
                 # need the did_accts to find who gets a copy of the message
-                _logger.error("Requesting did_accts from API process-thread")
+                _logger.debug("Requesting did_accts from API process-thread")
                 self.webr_q.put(("GetAccts",))
                 did_accts = self.weba_q.get()
-                _logger.error("Got did_accts from API process-thread"+str(did_accts))
+                _logger.debug("Got did_accts from API process-thread"+str(did_accts))
                 # the to (destination) is a DID. we'll use the CID setting from voip.ms for the sub account to receive.
                 for todid in payload["to"]:
                   if did_accts and todid["phone_number"] in did_accts.keys():
