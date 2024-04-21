@@ -4,6 +4,13 @@
 echo
 echo $(date -Ins) - Init started!
 
+signal_exit() {
+  sleep 10
+}
+
+# help pass the SIGTERM to child processes
+trap signal_exit SIGTERM
+
 # maybe mariadb?
 if [ -e /usr/bin/mysqld_safe ] ; then
   echo $(date -Ins) - Starting MariaDB
