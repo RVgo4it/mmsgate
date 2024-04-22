@@ -11,6 +11,7 @@
 # NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
 # OF THIS SOFTWARE.
 
+# v0.4.1 4/22/2024 Minor bug
 # v0.4.0 4/21/2024 Memory optimized and thread improvements
 # v0.3.2 4/17/2024 Minor bug
 # v0.3.1 4/16/2024 Added file server support, added Gunicorn and fixes
@@ -167,8 +168,8 @@ class pjsip_class():
     except:
       PrintException()
     # Destroy the library
-    _logger.debug("pjsip_q exiting thread")
     ep.libDestroy()
+    _logger.warning("pjsip_q exiting thread")
 
   # send an instant message via pjsua2.
   def send_im(self,pj,acc,fromuri,touri,did,msg,contact,mtype):
@@ -481,7 +482,7 @@ class web_class():
                   # parse the POST-ed file
                   multipart.parse_form(multipart_headers, environ['wsgi.input'],
                     lambda field:
-                      print("field:",field,field.field_name,field.value),
+                      _logger.warning(str("field:",field,field.field_name,field.value)),
                     on_file, chunk_size=1024 * 8 )
                   # no file POST found?
                   if web_class.webhook_app.resp == "":
@@ -544,11 +545,10 @@ class web_class():
                   else:
                     _logger.error("URL download failed: "+media["url"])
                 # need the did_accts to find who gets a copy of the message
-                print("Requesting did_accts from API process-thread: "+str(self.ask_q))
+                _logger.debug("Requesting did_accts from API process-thread: "+str(self.ask_q))
                 self.ask_q.put(("GetAccts",))
-                print("Getting did_accts from API process-thread: "+str(self.resp_q))
+                _logger.debug("Getting did_accts from API process-thread: "+str(self.resp_q))
                 did_accts = self.resp_q.get()
-                print("didaccts",did_accts)
                 _logger.debug("Got did_accts from API process-thread"+str(did_accts))
                 # the to (destination) is a DID. we'll use the CID setting from voip.ms for the sub account to receive.
                 for todid in payload["to"]:
@@ -886,8 +886,8 @@ class db_class():
           pass
     except:
       PrintException()
-
     conn.close()
+    _logger.warning("Exiting DB thread.")
 
   # run sql update
   def update_row_db(self,conn,sql,params):

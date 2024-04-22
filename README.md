@@ -458,7 +458,7 @@ docker exec mmsgate sudo su -c "sqlite3 ~/data/mmsgate.sqlite \"VACUUM;\"" mmsga
 ```
 However, the vacuum command can change the row IDs of a SQLite table.  MMSGate depends on the row ID.  Thus, when automating the vacuum command, precede it with this command to stop MMSGate for 60 seconds:
 ```
-docker exec mmsgate bash -c "sudo kill \$(pgrep mmsgate.py)"
+docker exec mmsgate bash -c "sudo kill \$(pgrep -o mmsgate.py)"
 ```
 To compare the database contents with the message history from VoIP.ms, and reconcile any missing messages, use this command:
 ```
@@ -495,7 +495,7 @@ For PJSIP logs, in the "[sip]" section, set option "siploglevel" to level "5" fo
 
 Once back at a command prompt, restart the MMSGate script using this command:
 ```
-docker exec -it mmsgate bash -c "sudo kill \$(pgrep mmsgate.py)"
+docker exec -it mmsgate bash -c "sudo kill \$(pgrep -o mmsgate.py)"
 ```
 Wait 60 seconds.  To view the log as it is appended to, use this command:
 ```
