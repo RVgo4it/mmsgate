@@ -75,6 +75,7 @@ xmltemplate = '''<config xmlns="http://www.linphone.org/xsds/lpconfig.xsd" xmlns
 <entry name="transient_provisioning" overwrite="true">1</entry>
 <entry name="hide_chat_rooms_from_removed_proxies" overwrite="true">0</entry>
 <entry name="file_transfer_server_url" overwrite="true">{fileserver}</entry>
+<entry name="version_check_url_root" overwrite="true"></entry>
 </section>
 <section name="app">
 <entry name="keep_service_alive" overwrite="true">1</entry>

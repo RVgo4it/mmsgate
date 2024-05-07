@@ -11,6 +11,7 @@
 # NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
 # OF THIS SOFTWARE.
 
+# v0.5.2 5/7/2024 Minor bug
 # v0.5.1 5/6/2024 Minor bug fix
 # v0.5.0 5/5/2024 New "to" url param for http file server and proxy support
 # v0.4.1 4/22/2024 Minor bug
