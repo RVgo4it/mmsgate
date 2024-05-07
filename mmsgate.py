@@ -11,6 +11,8 @@
 # NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
 # OF THIS SOFTWARE.
 
+# v0.5.1 5/6/2024 Minor bug fix
+# v0.5.0 5/5/2024 New "to" url param for http file server and proxy support
 # v0.4.1 4/22/2024 Minor bug
 # v0.4.0 4/21/2024 Memory optimized and thread improvements
 # v0.3.2 4/17/2024 Minor bug
@@ -376,9 +378,6 @@ class web_class():
   def __init__(self,ask_q,resp_q):
     import threading
     import multiprocessing
-    # return calc for number of threads for gunicorn
-    def number_of_threads():
-      return (multiprocessing.cpu_count() * 2) + 1
     # return calc for number of processes for gunicorn
     def number_of_workers():
       return (multiprocessing.cpu_count() * 2) + 1
@@ -390,21 +389,25 @@ class web_class():
       _logger.debug("worker post_worker_init done, (pid: {})".format(worker.pid))
     # gunicorn options
     options = {
-        'bind': '%s:%s' % (cfg.get("web","webbind"), str(cfg.get("web","webport"))),
         'timeout': 0,
         'workers': number_of_workers(),
-        'threads': number_of_threads(),
         'post_worker_init':post_worker_init
     }
-    # tls?
-    if cfg.get("web","protocol") == "https":
-      if cfg.exists("web","cert") and cfg.exists("web","cert"):
+    # bind override to allow proxy like nginx?
+    if cfg.exists("web","bindoverride"):
+      options["bind"] = cfg.get("web","bindoverride")
+    else:
+      # ok, bind per config and maybe tls
+      options["bind"] = '%s:%s' % (cfg.get("web","webbind"), str(cfg.get("web","webport")))
+      # tls?
+      if cfg.get("web","protocol") == "https":
+        if cfg.exists("web","cert") and cfg.exists("web","cert"):
           cert = cfg.get("web","cert")
           key = cfg.get("web","key")
           options["certfile"] = cert
           options["keyfile"] = key
-      else:
-        raise ValueError("For https protocol, section/option of web/cert and web/key are required in config file.  Please correct.")
+        else:
+          raise ValueError("For https protocol, section/option of web/cert and web/key are required in config file.  Please correct.")
     # init for web request/answer queues
     self.resp_q = resp_q
     self.ask_q = ask_q
@@ -490,6 +493,13 @@ class web_class():
                   else:
                     status = "200 OK"
                     response_body = str.encode(web_class.webhook_app.resp)
+                  # check for "to" url param
+                  if environ['QUERY_STRING'] != "":
+                    import urllib
+                    qs = urllib.parse.parse_qs(environ['QUERY_STRING'])
+                    if "to" in qs:
+                      # send image/video uploaded to the client soecified
+                      self.ask_q.put_nowait(("MsgNew","1099",None,qs["to"][0],None,web_class.webhook_app.resp,"IN",None,"MMS",0))
             except:
                 PrintException()
                 status = "500 Error"
@@ -601,7 +611,7 @@ class web_class():
             fpath = os.path.join(lpath, rpath)
             _logger.debug(str(("GET method: fpath:",fpath)))
             if os.path.exists(fpath):
-                ftype = mimetypes.guess_type(fpath)[0]
+                ftype = mimetypes.guess_type(fpath)[0] or "application/octet-stream"
                 filelen = os.path.getsize(fpath)
                 start_response("200 OK", [("Content-Type", ftype),
                   ("Content-Length", str(filelen))])
@@ -858,9 +868,14 @@ class db_class():
 
           # is it a message we tried before?  if timeout, then queue it back up.
           if msgstatus != "QUEUED":
-            # time between retry will grow exponentially
-            if (datetime.utcnow() - datetime.utcfromtimestamp(sent_ts)) > (td_timeout * trycnt * trycnt):
-              self.update_row_db(conn,sql_update_status_via_rowid,("QUEUED",rowid))
+            if msgstatus == "API ERR":
+              # time between retry will grow exponentially for issues w/ voip.ms
+              if (datetime.utcnow() - datetime.utcfromtimestamp(sent_ts)) > (td_timeout * trycnt * trycnt):
+                self.update_row_db(conn,sql_update_status_via_rowid,("QUEUED",rowid))
+            else:
+              # try again soon
+              if (datetime.utcnow() - datetime.utcfromtimestamp(sent_ts)) > td_timeout:
+                self.update_row_db(conn,sql_update_status_via_rowid,("QUEUED",rowid))
 
         # check the inter-process queue
         try:
@@ -958,6 +973,7 @@ class config_class:
     "protocol": "This is the web protocol, either http or https.",
     "cert": "This is the path to the certificate chain file.  It is needed for https protocol.",
     "key": "This is the path to the private key file.  It is needed for https protocol.",
+    "bindoverride": "Setting this to a gunicorn bind setting tells mmsgate that TLS and web traffic are handled by a proxy server (nginx) and mmsgate will just do local http.  Example is \"bindoverride=0.0.0.0:8080\".",
     "pathpost": "This is the path the web hook url uses.",
     "pathget": "This is the path the MMS media url uses.",
     "pathfile": "This is the path the MMS file server upload uses.",
@@ -1189,6 +1205,7 @@ def threads(ask_q,resp_q):
     q.put_nowait(("Done",))
   _logger.warning("Exiting MMSGate in 5 seconds...")
   time.sleep(5)
+  os.kill(os.getppid(), signal.SIGTERM)
 
 #
 # main()
