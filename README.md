@@ -195,9 +195,13 @@ We need to send all SIP messages from the Linphone clients that are not text, th
 ```
 <sip:127.0.0.2>     request.method == 'MESSAGE' && user-agent contains 'Linphone' && content-type != 'text/plain'
 ```
-For internal extension support, we also need to send any messages send to an internal extension over to MMSGate.  Add a line as per the following:
+For internal extension support, we also need to send any messages sent to an internal extension over to MMSGate.  Add a line as per the following:
 ```
 <sip:127.0.0.2>     request.method == 'MESSAGE' && user-agent contains 'Linphone' && to.uri.user regex '10[0-9]{1,10}'
+```
+For SMS short code support, we also need to send any messages sent to short codes over to MMSGate.  Add a line as per the following:
+```
+<sip:127.0.0.2>     request.method == 'MESSAGE' && user-agent contains 'Linphone' && to.uri.user regex '[0-9]{5,6}'
 ```
 Once back at the command prompt, edit the MMSGate configuration file using this command:
 ```
